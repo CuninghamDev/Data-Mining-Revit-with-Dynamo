@@ -2,7 +2,7 @@
   "Uuid": "fc4c6814-3c4c-491c-ae35-5a46a395f458",
   "IsCustomNode": false,
   "Description": null,
-  "Name": "Mining Program Data",
+  "Name": "Mining Program Data_Making Edits to Logic",
   "ElementResolver": {
     "ResolutionMap": {}
   },
@@ -54,7 +54,7 @@
     {
       "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
       "NodeType": "PythonScriptNode",
-      "Code": "import math\r\n\r\n# Enable Python support and load DesignScript library\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import *\r\n\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('DSCoreNodes')\r\nimport DSCore\r\nfrom DSCore.List import *\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\r\ndef getBoundaryCurves(_room):\r\n\t_curvesOut = []\r\n\treturn _room.GetBoundarySegments(SpatialElementBoundaryOptions())\r\n\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuiapp = DocumentManager.Instance.CurrentUIApplication\r\napp = uiapp.Application\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\naproxDivisionDistance = IN[0]\r\nselectedPhases = IN[1]\r\nselectedDepts = IN[2]\r\nselectedLevels = IN[3]\r\n\r\nif type(selectedPhases) != list:\r\n\tselectedPhases = [selectedPhases]\r\nif type(selectedDepts) != list:\r\n\tselectedDepts = [selectedDepts]\r\nif type(selectedLevels) != list:\r\n\tselectedLevels = [selectedLevels]\r\n\t\r\nrooms = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).WhereElementIsNotElementType().ToElements()\r\nreportingData = []\r\nroomData = []\r\nfor i, room in enumerate(rooms):\r\n\t\r\n\tphaseMatched = False\r\n\tdepartmentMatched = False\r\n\tlevelMatched = False\r\n\tfor phase in selectedPhases:\r\n\t\tif room.get_Parameter(BuiltInParameter.ROOM_PHASE).AsValueString() == phase:\r\n\t\t\tphaseMatched = True\r\n\tfor dept in selectedDepts:\r\n\t\tif room.LookupParameter('Department').AsString() == dept:\r\n\t\t\tdepartmentMatched = True\r\n\tfor level in selectedLevels:\r\n\t\tif room.Level.Name == level:\r\n\t\t\tlevelMatched = True\r\n\t\r\n\tif room.Area > 0 and phaseMatched and departmentMatched and levelMatched: \r\n\t\troomObject = {}\r\n\t\troomObject[\"elevation\"] = round(room.Level.Elevation)\r\n\t\troomObject[\"level\"] = room.Level.Name\r\n\t\troomObject[\"area\"] = room.Area\r\n\t\t\r\n\t\t########Additional parameters can be added to the list below as necessary\r\n\t\troomObject[\"name\"] = room.LookupParameter('Name').AsString()\r\n\t\troomObject[\"department\"] = room.LookupParameter('Department').AsString()\r\n\t\troomObject[\"number\"] = room.LookupParameter('Number').AsString()\r\n\t\troomObject[\"occupancy\"] = room.LookupParameter('Occupancy').AsString()\r\n\t\troomObject[\"base finish\"] = room.LookupParameter('Base Finish').AsString()\r\n\t\troomObject[\"ceiling finish\"] = room.LookupParameter('Ceiling Finish').AsString()\r\n\t\troomObject[\"wall finish\"] = room.LookupParameter('Wall Finish').AsString()\r\n\t\troomObject[\"floor finish\"] = room.LookupParameter('Floor Finish').AsString()\r\n\t\t\r\n\t\troomObject[\"loopData\"] = []\r\n\t\tboundaryCurves = getBoundaryCurves(room)\r\n\t\t\r\n\t\treportingRoom = []\r\n\t\t##############The following for loop is the logic to convert the boundary curves into nested lists of points\r\n\t\tfor j, loop in enumerate(boundaryCurves):\r\n\t\t\troomObject[\"loopData\"].append({\"points\":[],\"outerLoop\":False})\r\n\t\t\t\r\n\t\t\tif j == 0:\r\n\t\t\t\troomObject[\"loopData\"][j][\"outerLoop\"]=True\r\n\t\t\t\t\r\n\t\t\treportingLoop = []\r\n\t\t\tfor curve in loop:\r\n\t\t\t\tcurveGeom = curve.GetCurve()\r\n\t\t\t\treportingLoop.append(curveGeom.ToProtoType())\r\n\t\t\t\ttype = curveGeom.GetType().ToString()\r\n\t\t\t\t\r\n\t\t\t\tif type == \"Autodesk.Revit.DB.Line\":\r\n\t\t\t\t\tpointDict = {}\r\n\t\t\t\t\tstartPoint = curveGeom.GetEndPoint(0)\r\n\t\t\t\t\t#reportingLoop.append(startPoint.ToPoint())\r\n\t\t\t\t\tpointDict[\"x\"] = round(startPoint.X,5)\r\n\t\t\t\t\tpointDict[\"y\"] = round(startPoint.Y,5)\r\n\t\t\t\t\tpointDict[\"z\"] = roomObject[\"elevation\"]\r\n\t\t\t\t\troomObject[\"loopData\"][j][\"points\"].append(pointDict)\r\n\t\t\t\telse:\r\n\t\t\t\t\t#the logic to run if the line is curved to generate approximating straight segment geometry\t\t\t\t\r\n\t\t\t\t\tevalParams = []\r\n\t\t\t\t\tnumberOfSteps = math.ceil(curveGeom.Length/aproxDivisionDistance)\r\n\t\t\t\t\tparamStep = 1/numberOfSteps\r\n\t\t\t\t\tfor step in range(int(numberOfSteps)):\r\n\t\t\t\t\t\tevalParams.append((step)*paramStep)\r\n\t\t\t\t\t\t\r\n\t\t\t\t\tfor param in evalParams:\r\n\t\t\t\t\t\tpointDict = {}\r\n\t\t\t\t\t\tevalPoint = curveGeom.Evaluate(param,True)\r\n\t\t\t\t\t\t#reportingLoop.append(evalPoint.ToPoint())\r\n\t\t\t\t\t\tpointDict[\"x\"] = round(evalPoint.X,5)\r\n\t\t\t\t\t\tpointDict[\"y\"] = round(evalPoint.Y,5)\r\n\t\t\t\t\t\tpointDict[\"z\"] = roomObject[\"elevation\"]\r\n\t\t\t\t\t\troomObject[\"loopData\"][j][\"points\"].append(pointDict)\r\n\t\t\treportingRoom.append(reportingLoop)\r\n\t\treportingData.append(reportingRoom)\r\n\t\t\t\r\n\t\troomData.append(roomObject)\r\n\t\t\t\t\t\r\n\t\t\t\t\r\n\r\nOUT = [roomData,reportingData]",
+      "Code": "import math\r\n\r\n# Enable Python support and load DesignScript library\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import *\r\n\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('DSCoreNodes')\r\nimport DSCore\r\nfrom DSCore.List import *\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\r\ndef getBoundaryCurves(_room):\r\n\t_curvesOut = []\r\n\treturn _room.GetBoundarySegments(SpatialElementBoundaryOptions())\r\n\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuiapp = DocumentManager.Instance.CurrentUIApplication\r\napp = uiapp.Application\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\naproxDivisionDistance = IN[0]\r\nselectedPhases = IN[1]\r\nselectedDepts = IN[2]\r\nselectedLevels = IN[3]\r\n\r\nif type(selectedPhases) != list:\r\n\tselectedPhases = [selectedPhases]\r\nif type(selectedDepts) != list:\r\n\tselectedDepts = [selectedDepts]\r\nif type(selectedLevels) != list:\r\n\tselectedLevels = [selectedLevels]\r\n\t\r\nrooms = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).WhereElementIsNotElementType().ToElements()\r\nreportingData = []\r\nroomData = []\r\nfor i, room in enumerate(rooms):\r\n\t\r\n\tphaseMatched = False\r\n\tdepartmentMatched = False\r\n\tlevelMatched = False\r\n\tfor phase in selectedPhases:\r\n\t\tif room.get_Parameter(BuiltInParameter.ROOM_PHASE).AsValueString() == phase:\r\n\t\t\tphaseMatched = True\r\n\tfor dept in selectedDepts:\r\n\t\tif room.LookupParameter('Department').AsString() == dept:\r\n\t\t\tdepartmentMatched = True\r\n\tfor level in selectedLevels:\r\n\t\tif room.Level.Name == level:\r\n\t\t\tlevelMatched = True\r\n\t\r\n\tif room.Area > 0 and phaseMatched and departmentMatched and levelMatched: \r\n\t\troomObject = {}\r\n\t\troomObject[\"elevation\"] = round(room.Level.Elevation)\r\n\t\troomObject[\"level\"] = room.Level.Name\r\n\t\troomObject[\"area\"] = room.Area\r\n\t\t\r\n\t\t########Additional parameters can be added to the list below as necessary\r\n\t\troomObject[\"name\"] = room.LookupParameter('Name').AsString()\r\n\t\troomObject[\"department\"] = room.LookupParameter('Department').AsString()\r\n\t\troomObject[\"number\"] = room.LookupParameter('Number').AsString()\r\n\t\troomObject[\"occupancy\"] = room.LookupParameter('Occupancy').AsString()\r\n\t\troomObject[\"base finish\"] = room.LookupParameter('Base Finish').AsString()\r\n\t\troomObject[\"ceiling finish\"] = room.LookupParameter('Ceiling Finish').AsString()\r\n\t\troomObject[\"wall finish\"] = room.LookupParameter('Wall Finish').AsString()\r\n\t\troomObject[\"floor finish\"] = room.LookupParameter('Floor Finish').AsString()\r\n\t\t\r\n\t\troomObject[\"outerLoop\"] = []\r\n\t\troomObject[\"innerLoops\"] = []\r\n\t\tboundaryCurves = getBoundaryCurves(room)\r\n\t\t\r\n\t\treportingRoom = []\r\n\t\t##############The following for loop is the logic to convert the boundary curves into nested lists of points\r\n\t\tfor j, loop in enumerate(boundaryCurves):\r\n\t\t\tif j == 0:\r\n\t\t\t\taccessKey = \"outerLoop\"\r\n\t\t\t\troomObject[accessKey] = []\r\n\t\t\telse:\r\n\t\t\t\taccessKey = \"innerLoops\"\r\n\t\t\t\taccessIndex = j-1\r\n\t\t\t\troomObject[accessKey].append([])\r\n\t\t\t\t\r\n\t\t\treportingLoop = []\r\n\t\t\tfor curve in loop:\r\n\t\t\t\tcurveGeom = curve.GetCurve()\r\n\t\t\t\treportingLoop.append(curveGeom.ToProtoType())\r\n\t\t\t\ttype = curveGeom.GetType().ToString()\r\n\t\t\t\t\r\n\t\t\t\tif type == \"Autodesk.Revit.DB.Line\":\r\n\t\t\t\t\tpointDict = dict()\r\n\t\t\t\t\tstartPoint = curveGeom.GetEndPoint(0)\r\n\t\t\t\t\tpointDict[\"x\"] = round(startPoint.X,5)\r\n\t\t\t\t\tpointDict[\"y\"] = round(startPoint.Y,5)\r\n\t\t\t\t\tpointDict[\"z\"] = roomObject[\"elevation\"]\r\n\t\t\t\t\tif j == 0:\r\n\t\t\t\t\t\troomObject[accessKey].append(dict(pointDict))\r\n\t\t\t\t\telse:\r\n\t\t\t\t\t\troomObject[accessKey][accessIndex].append(dict(pointDict))\r\n\t\t\t\telse:\r\n\t\t\t\t\t#the logic to run if the line is curved to generate approximating straight segment geometry\t\t\t\t\r\n\t\t\t\t\tevalParams = []\r\n\t\t\t\t\tnumberOfSteps = math.ceil(curveGeom.Length/aproxDivisionDistance)\r\n\t\t\t\t\tparamStep = 1/numberOfSteps\r\n\t\t\t\t\tfor step in range(int(numberOfSteps)):\r\n\t\t\t\t\t\tevalParams.append((step)*paramStep)\r\n\t\t\t\t\t\t\r\n\t\t\t\t\tfor param in evalParams:\r\n\t\t\t\t\t\tpointDict = dict()\r\n\t\t\t\t\t\tevalPoint = curveGeom.Evaluate(param,True)\r\n\t\t\t\t\t\tpointDict[\"x\"] = round(evalPoint.X,5)\r\n\t\t\t\t\t\tpointDict[\"y\"] = round(evalPoint.Y,5)\r\n\t\t\t\t\t\tpointDict[\"z\"] = roomObject[\"elevation\"]\r\n\t\t\t\t\t\tif j == 0:\r\n\t\t\t\t\t\t\troomObject[accessKey].append(dict(pointDict))\r\n\t\t\t\t\t\telse:\r\n\t\t\t\t\t\t\troomObject[accessKey][accessIndex].append(dict(pointDict))\r\n\t\t\treportingRoom.append(reportingLoop)\r\n\t\treportingData.append(reportingRoom)\r\n\t\t\t\r\n\t\troomData.append(roomObject)\r\n\t\t\t\t\t\r\n\t\t\t\t\r\n\r\nOUT = [roomData,reportingData]",
       "VariableInputPorts": true,
       "Id": "431385d3712d4ee094e4e7d13faecaf5",
       "Inputs": [
@@ -2267,37 +2267,6 @@
       "Description": "Allows for DesignScript code to be authored directly"
     },
     {
-      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
-      "NodeType": "PythonScriptNode",
-      "Code": "# Enable Python support and load DesignScript library\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import *\r\n\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('DSCoreNodes')\r\nimport DSCore\r\nfrom DSCore.List import *\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuiapp = DocumentManager.Instance.CurrentUIApplication\r\napp = uiapp.Application\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\nroomDataIn = IN[0]\r\nboundaryCurves = []\r\n\r\nfor roomData in roomDataIn:\r\n\tfor loop in roomData[\"loopData\"]:\r\n\t\tif loop[\"outerLoop\"]:\r\n\t\t\tpointData = []\r\n\t\t\t\r\n\t\t\tfor point in loop[\"points\"]:\r\n\t\t\t\trevitPoint = XYZ(point[\"x\"],point[\"y\"],point[\"z\"])\r\n\t\t\t\tpointData.append(revitPoint)\r\n\t\t\t\t\r\n\t\t\tlastPoint = XYZ(loop[\"points\"][0][\"x\"],loop[\"points\"][0][\"y\"],loop[\"points\"][0][\"z\"])\r\n\t\t\tpointData.append(lastPoint)\r\n\t\t\t\t\r\n\t\t\touterBoundary = PolyLine.Create(pointData)\r\n\t\t\tboundaryCurves.append(outerBoundary.ToProtoType())\r\n\t\t\t\r\nOUT = boundaryCurves",
-      "VariableInputPorts": true,
-      "Id": "531fc049ed37471bb2dc687ff4dc900f",
-      "Inputs": [
-        {
-          "Id": "e064e986b2a14732b4c590389eaa9813",
-          "Name": "IN[0]",
-          "Description": "Input #0",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Outputs": [
-        {
-          "Id": "bd32c3426c504519bc7e6156071dcd17",
-          "Name": "OUT",
-          "Description": "Result of the python script",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Replication": "Disabled",
-      "Description": "Runs an embedded IronPython script."
-    },
-    {
       "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Function, DynamoCore",
       "FunctionSignature": "9fbd05c0-ec1f-4bd3-bf37-969a1552eab8",
       "FunctionType": "Graph",
@@ -2813,38 +2782,9 @@
       "Description": "Create Data for TextBox input in UI.MultipleInputForm ++ . Check out www.data-shapes.net for more informations"
     },
     {
-      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
-      "NodeType": "ExtensionNode",
-      "Id": "5f85c652674d4164b5816cbab7b059bf",
-      "Inputs": [
-        {
-          "Id": "a2230cdb98274e0c84fa7e21fef54677",
-          "Name": "",
-          "Description": "Node to evaluate.",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Outputs": [
-        {
-          "Id": "a8b23485ea3d4d18af27def739f426d0",
-          "Name": "",
-          "Description": "Watch contents.",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Replication": "Disabled",
-      "Description": "Visualize the output of node."
-    },
-    {
       "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
       "NodeType": "PythonScriptNode",
-      "Code": "import os\r\nimport json\r\nimport csv\r\n\r\n# Enable Python support and load DesignScript library\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import *\r\n\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('DSCoreNodes')\r\nimport DSCore\r\nfrom DSCore.List import *\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\t\r\ndef normalizeNulls(_input):\r\n\tif _input == \"null\" or _input == \"\" or not _input:\r\n\t\treturn ''\r\n\telse:\r\n\t\treturn _input\r\n\r\ndef writeDictToCsv(_dataOut,_filePathOut):\r\n    csv_headers = _dataOut[0].keys()\r\n    #The data out should be formated as a list of dictionaries\r\n    #each dictionary should have identical keys\r\n    with open(_filePathOut, \"w\") as csvFile:\r\n        writer = csv.DictWriter(csvFile, fieldnames = csv_headers, delimiter = ',', lineterminator = '\\n')\r\n        writer.writeheader()\r\n        for row in _dataOut:\r\n            writer.writerow(row)\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuiapp = DocumentManager.Instance.CurrentUIApplication\r\napp = uiapp.Application\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\ndirectoryPath = IN[1][0]\r\nnormalizedPath = os.path.normpath(directoryPath)\r\nexportName = IN[1][1]\r\n\r\ncsvExportName = exportName + \".csv\"\r\njsonExportName = exportName + \".json\"\r\ntextExportName = exportName + \".txt\"\r\n\r\ncsvExportPath = os.path.join(normalizedPath, csvExportName)\r\njsonExportPath = os.path.join(normalizedPath, jsonExportName)\r\ntextExportPath = os.path.join(normalizedPath, textExportName)\r\n\r\nmetaDataKey = IN[1][2]\r\n\r\nmetaData = IN[0]\r\nroomData = IN[2]\r\n\r\nmetaDataMatched = False\r\nfor metaDataSet in metaData:\r\n\tif metaDataSet[0] == metaDataKey:\r\n\t\tmetaDataSet.pop(0)\r\n\t\tmetaDataKeys = metaDataSet\r\n\t\tmetaDataMatched = True\r\nif not metaDataMatched:\r\n\tmetaDataKeys = [\"manually enter metadata here\"]\r\n\r\n\r\nmetaDataDictionary = {}\r\nfor key in metaDataKeys:\r\n\tmetaDataDictionary[key] = \"\"\r\ndataObjectToJson = {\"metadata\": metaDataDictionary,\"roomdata\": roomData}\r\n\r\nwith open(jsonExportPath, 'w') as jsonOutFile:\r\n\tjson.dump(dataObjectToJson, jsonOutFile)\r\n\t\r\n\t\r\ncsvListOfObjects = []\r\nfor room in roomData:\r\n\trowObject = {\r\n\t\t\"room number\": normalizeNulls(room[\"number\"]),\r\n\t\t\"room name\": normalizeNulls(room[\"name\"]),\r\n\t\t\"department\": normalizeNulls(room[\"department\"]),\r\n\t\t\"level\": normalizeNulls(room[\"level\"]),\r\n\t\t\"elevation\": normalizeNulls(room[\"elevation\"]),\r\n\t\t\"area\": normalizeNulls(room[\"area\"]),\r\n\t\t\"wall finish\": normalizeNulls(room[\"wall finish\"]),\r\n\t\t\"ceiling finish\": normalizeNulls(room[\"ceiling finish\"]),\r\n\t\t\"base finish\": normalizeNulls(room[\"base finish\"]),\r\n\t\t\"floor finish\": normalizeNulls(room[\"floor finish\"])\r\n\t}\r\n\tcsvListOfObjects.append(rowObject)\r\n\r\nwriteDictToCsv(csvListOfObjects,csvExportPath)\r\n\r\nOUT = [csvListOfObjects]",
+      "Code": "import os\r\nimport json\r\nimport csv\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\t\r\ndef normalizeNulls(_input):\r\n\tif _input == \"null\" or _input == \"\" or not _input:\r\n\t\treturn ''\r\n\telse:\r\n\t\treturn _input\r\n\r\ndef writeDictToCsv(_dataOut,_filePathOut):\r\n    csv_headers = _dataOut[0].keys()\r\n    #The data out should be formated as a list of dictionaries\r\n    #each dictionary should have identical keys\r\n    with open(_filePathOut, \"w\") as csvFile:\r\n        writer = csv.DictWriter(csvFile, fieldnames = csv_headers, delimiter = ',', lineterminator = '\\n')\r\n        writer.writeheader()\r\n        for row in _dataOut:\r\n            writer.writerow(row)\r\n\r\ndirectoryPath = IN[1][0]\r\nnormalizedPath = os.path.normpath(directoryPath)\r\nexportName = IN[1][1]\r\n\r\ncsvExportName = exportName + \".csv\"\r\njsonExportName = exportName + \".json\"\r\nlogExportName = exportName + \"_log.json\"\r\n\r\ncsvExportPath = os.path.join(normalizedPath, csvExportName)\r\njsonExportPath = os.path.join(normalizedPath, jsonExportName)\r\nlogExportPath = os.path.join(normalizedPath, logExportName)\r\n\r\nmetaDataKey = IN[1][2]\r\n\r\nmetaData = IN[2]\r\nroomData = IN[0][0]\r\n\r\nmetaDataMatched = False\r\nfor metaDataSet in metaData:\r\n\tif metaDataSet[0] == metaDataKey:\r\n\t\tmetaDataSet.pop(0)\r\n\t\tmetaDataKeys = metaDataSet\r\n\t\tmetaDataMatched = True\r\nif not metaDataMatched:\r\n\tmetaDataKeys = [\"manually enter metadata here\"]\r\n\r\n\r\n### fixing an issue with the point dictionaries not being JSON serializable\r\nfor room in roomData:\r\n\tnewOuterLoop = []\r\n\tfor point in room[\"outerLoop\"]:\r\n\t\tpointDict = dict(point)\r\n\t\tnewOuterLoop.append(pointDict)\r\n\troom[\"outerLoop\"] = newOuterLoop\r\n\t\r\n\tnewInnerLoops = []\r\n\tif len(room[\"innerLoops\"]) > 0:\r\n\t\tfor loop in room[\"innerLoops\"]:\r\n\t\t\tnewInnerLoop = []\r\n\t\t\tfor point in loop:\r\n\t\t\t\tpointDict = dict(point)\r\n\t\t\t\tnewInnerLoop.append(pointDict)\r\n\t\t\tnewInnerLoops.append(newInnerLoop)\r\n\t\troom[\"innerLoops\"] = newInnerLoops\r\n\t\t\r\n\telse:\r\n\t\troom[\"innerLoops\"] = False\r\n\r\ndataObjectToJson = {\"metaData\":metaDataKeys, \"roomData\":roomData}\r\nwith open(jsonExportPath, 'w') as jsonOutFile:\r\n\tjson.dump(dataObjectToJson, jsonOutFile, indent = 2)\r\n\t\r\ncsvListOfObjects = []\r\nfor room in roomData:\r\n\trowObject = {\r\n\t\t\"room number\": normalizeNulls(room[\"number\"]),\r\n\t\t\"room name\": normalizeNulls(room[\"name\"]),\r\n\t\t\"department\": normalizeNulls(room[\"department\"]),\r\n\t\t\"level\": normalizeNulls(room[\"level\"]),\r\n\t\t\"elevation\": normalizeNulls(room[\"elevation\"]),\r\n\t\t\"area\": normalizeNulls(room[\"area\"]),\r\n\t\t\"wall finish\": normalizeNulls(room[\"wall finish\"]),\r\n\t\t\"ceiling finish\": normalizeNulls(room[\"ceiling finish\"]),\r\n\t\t\"base finish\": normalizeNulls(room[\"base finish\"]),\r\n\t\t\"floor finish\": normalizeNulls(room[\"floor finish\"])\r\n\t}\r\n\tcsvListOfObjects.append(rowObject)\r\n\r\nwriteDictToCsv(csvListOfObjects,csvExportPath)\r\n\r\n\r\nphaseData = IN[3]\r\ndepartmentData = IN[4]\r\nlevelData = IN[5]\r\n\r\nphaseIncluded = 0\r\nphaseExcluded = 0\r\nfor i,phase in enumerate(phaseData[0]):\r\n\tmatched = False\r\n\tfor selPhase in phaseData[2]:\r\n\t\tif selPhase == phase:\r\n\t\t\tmatched = True\r\n\t\t\tbreak\r\n\tif matched:\r\n\t\tphaseIncluded += phaseData[1][i]\r\n\telse:\r\n\t\tphaseExcluded += phaseData[1][i]\r\n\t\t\r\ndeptsIncluded = 0\r\ndeptsExcluded = 0\r\nfor i,dept in enumerate(departmentData[0]):\r\n\tmatched = False\r\n\tfor selDept in departmentData[2]:\r\n\t\tif selDept == dept:\r\n\t\t\tmatched = True\r\n\t\t\tbreak\r\n\tif matched:\r\n\t\tdeptsIncluded += departmentData[1][i]\r\n\telse:\r\n\t\tdeptsExcluded += departmentData[1][i]\r\n\t\t\r\nlevelsIncluded = 0\r\nlevelsExcluded = 0\r\nfor i,lvl in enumerate(levelData[0]):\r\n\tmatched = False\r\n\tfor selLvl in levelData[2]:\r\n\t\tif selLvl == lvl:\r\n\t\t\tmatched = True\r\n\t\t\tbreak\r\n\tif matched:\r\n\t\tlevelsIncluded += levelData[1][i]\r\n\telse:\r\n\t\tlevelsExcluded += levelData[1][i]\r\n\r\nlogData = {\r\n\t\"FIRST_selected_phases\": phaseData[2],\r\n\t\"phase_included_room_count\": int(phaseIncluded),\r\n\t\"phase_excluded_room_count\": int(phaseExcluded),\r\n\t\"SECOND_selected_departments\": departmentData[2],\r\n\t\"department_included_room_count\": int(deptsIncluded),\r\n\t\"department_excluded_room_count\": int(deptsExcluded),\r\n\t\"THIRD_selected_levels\": levelData[2],\r\n\t\"levels_included_room_count\": int(levelsIncluded),\r\n\t\"levels_excluded_room_count\": int(levelsExcluded)\r\n}\r\n\r\n\r\nwith open(logExportPath, 'w') as jsonOutFile:\r\n\tjson.dump(logData, jsonOutFile, indent = 2)\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n",
       "VariableInputPorts": true,
       "Id": "cf2d92cfff314a389a08c62d03df93bd",
       "Inputs": [
@@ -2870,6 +2810,33 @@
           "Id": "28cf8a99204a4cdb9d0e3b85c05d101d",
           "Name": "IN[2]",
           "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "dbda1416b6564688994384a6739bb772",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "c6af7a7831e84575976038ae7405dd04",
+          "Name": "IN[4]",
+          "Description": "Input #4",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "5531009836ee41048545390ebe921634",
+          "Name": "IN[5]",
+          "Description": "Input #5",
           "UsingDefaultValue": false,
           "Level": 2,
           "UseLevels": false,
@@ -3251,35 +3218,6 @@
       "Description": "Makes a new list out of the given inputs"
     },
     {
-      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
-      "NodeType": "ExtensionNode",
-      "Id": "d2a8dd69e30249a9986be80ae503546d",
-      "Inputs": [
-        {
-          "Id": "edceeb8b736f489993e0a0a26045d870",
-          "Name": "",
-          "Description": "Node to evaluate.",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Outputs": [
-        {
-          "Id": "76010359ce134b899fabba5bcf129421",
-          "Name": "",
-          "Description": "Watch contents.",
-          "UsingDefaultValue": false,
-          "Level": 2,
-          "UseLevels": false,
-          "KeepListStructure": false
-        }
-      ],
-      "Replication": "Disabled",
-      "Description": "Visualize the output of node."
-    },
-    {
       "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
       "NodeType": "PythonScriptNode",
       "Code": "namesIn = IN[0]\r\nnamesOut = []\r\n\r\nfor name in namesIn:\r\n\tif name:\r\n\t\tnewName = ''\r\n\t\tfor letter in name:\r\n\t\t\tif letter == ',':\r\n\t\t\t\tletter = ''\r\n\t\t\tif letter == '&':\r\n\t\t\t\tletter = 'and'\r\n\t\t\tnewName += letter\r\n\t\tnamesOut.append(newName)\r\n\r\nOUT = namesOut",
@@ -3406,6 +3344,126 @@
       ],
       "Replication": "Disabled",
       "Description": "Visualize the output of node."
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "phaseData = [phases,phaseCounts,selPhases];\ndeptData = [depts,deptCounts,selDepts];\nlevelData = [levels,levelCounts, selLevels];",
+      "Id": "61072c2a49ac4a4d819e3090c913e2a4",
+      "Inputs": [
+        {
+          "Id": "e2d4fc02d32944c18aa75cb004464770",
+          "Name": "phases",
+          "Description": "phases",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "2058f0f6003943ff821722431c4a0616",
+          "Name": "phaseCounts",
+          "Description": "phaseCounts",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "d258127893564863a1ffc7dcda89f3e7",
+          "Name": "selPhases",
+          "Description": "selPhases",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "8ca4b189b649443db0ce9129af4d4d74",
+          "Name": "depts",
+          "Description": "depts",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "452ca48bd9ff4813b25064bb60d90eb3",
+          "Name": "deptCounts",
+          "Description": "deptCounts",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "bd2075fae5c64c8b9fac9d92c7557cc3",
+          "Name": "selDepts",
+          "Description": "selDepts",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "0f6490ad97684152ae0c6f8c62f0e0da",
+          "Name": "levels",
+          "Description": "levels",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "09f951872ccd4e0190cf6842cd8caae0",
+          "Name": "levelCounts",
+          "Description": "levelCounts",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "8e92387981e2460f894d36013be07609",
+          "Name": "selLevels",
+          "Description": "selLevels",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "c2b58ba40f034571add99751c139bb77",
+          "Name": "",
+          "Description": "phaseData",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "f7b095b7c90a4135991445db556b0003",
+          "Name": "",
+          "Description": "deptData",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "78faf7e18ad540a7b161387d52d41c2b",
+          "Name": "",
+          "Description": "levelData",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Allows for DesignScript code to be authored directly"
     }
   ],
   "Connectors": [
@@ -3440,6 +3498,11 @@
       "Id": "facda53cf51a4bd1ad5ad583fe2f2cb5"
     },
     {
+      "Start": "a02633fa2dc24168919069fd048ab4bd",
+      "End": "c63a8c9e970f4832aedd3279d1d7cef9",
+      "Id": "78ddea6bcf314fd7a6605a9c54f1eca9"
+    },
+    {
       "Start": "787e766dab9b412d8cd465f40f9c45a1",
       "End": "6c79c7d272b3487c9fc394994c43c9ec",
       "Id": "6fc9ac434f1b4e0093ae4c603b2ca7ed"
@@ -3465,9 +3528,19 @@
       "Id": "484bfda03ade48e58f6c8f09463e7e01"
     },
     {
+      "Start": "a5d5a9e7f5e648ba928b659e9efe1697",
+      "End": "e2d4fc02d32944c18aa75cb004464770",
+      "Id": "1bb4818784534d1d89b59108dfea8931"
+    },
+    {
       "Start": "5c39f4ca7fde4c79baba49efdc7d9581",
       "End": "1d1e847b7205408aa6b6d6560a4a105a",
       "Id": "e37fddf00f834ff78a974e5251972ccc"
+    },
+    {
+      "Start": "5c39f4ca7fde4c79baba49efdc7d9581",
+      "End": "2058f0f6003943ff821722431c4a0616",
+      "Id": "18deea9b6ada4723b1965b4c079c145e"
     },
     {
       "Start": "a0b15d609f524c86b59a56540eecf503",
@@ -3585,6 +3658,11 @@
       "Id": "657d467e41b34430b3dabf669bc5bf9a"
     },
     {
+      "Start": "0226be85fab34504839b747ec1c0ecfd",
+      "End": "d258127893564863a1ffc7dcda89f3e7",
+      "Id": "101c3c5692d14ef0838c5008b7442523"
+    },
+    {
       "Start": "25ed68f034864718b0c9d5514454952e",
       "End": "fd43d4b43ad9443aaabd33a04c68db0e",
       "Id": "2ec8507f040d4694b2e69867d895fd8c"
@@ -3595,9 +3673,19 @@
       "Id": "2cddcaedce4a4cc89a598f7c3456071e"
     },
     {
+      "Start": "356ef368e4b6464d9249aedf12ffd48b",
+      "End": "8ca4b189b649443db0ce9129af4d4d74",
+      "Id": "80a2d285720e42febaaf16264e968f28"
+    },
+    {
       "Start": "c934b4afd2f54694b0a8a626df3603ce",
       "End": "935dfa8172ed45cead8f8f7e5740e151",
       "Id": "7d03a9b733284b918860b9d74ae276e0"
+    },
+    {
+      "Start": "c934b4afd2f54694b0a8a626df3603ce",
+      "End": "452ca48bd9ff4813b25064bb60d90eb3",
+      "Id": "211d55b916bd4034a20d50712196226f"
     },
     {
       "Start": "70bf18e7259f476b9f3b72a63995a13d",
@@ -3711,8 +3799,8 @@
     },
     {
       "Start": "86de8e06d0cf4485a657b2b7fb6ef55a",
-      "End": "edceeb8b736f489993e0a0a26045d870",
-      "Id": "e88948439fdf44659866c334838175ec"
+      "End": "bd2075fae5c64c8b9fac9d92c7557cc3",
+      "Id": "ad39bd87ef444cbc993c6f7fdcc4d16d"
     },
     {
       "Start": "87d52bc4161a4a83aa10b5793b49ea9b",
@@ -3825,6 +3913,11 @@
       "Id": "95dbe6b2f4364c8fb6a80745ecf46ea5"
     },
     {
+      "Start": "eab41930cf754f4f91b47c22e77691d5",
+      "End": "8e92387981e2460f894d36013be07609",
+      "Id": "b51536d1d8db40d08763ea241d57f087"
+    },
+    {
       "Start": "b1ce18ae136a475f8465ca8e046ba04f",
       "End": "48121917dbab4a39ac65352cc7a8387d",
       "Id": "b18e015839ce478ca96d111048fec0ee"
@@ -3840,9 +3933,19 @@
       "Id": "571e2f4b82cc4aa8b9a47d76ba5ec410"
     },
     {
+      "Start": "b1ce18ae136a475f8465ca8e046ba04f",
+      "End": "0f6490ad97684152ae0c6f8c62f0e0da",
+      "Id": "154551bf617e4942bda881b6f55b60fd"
+    },
+    {
       "Start": "bd82ef87095046daa3b56c0e2de68770",
       "End": "a241915024964455964c67030f3d0290",
       "Id": "c5a61cccc6a44e93b9dec138393347ff"
+    },
+    {
+      "Start": "bd82ef87095046daa3b56c0e2de68770",
+      "End": "09f951872ccd4e0190cf6842cd8caae0",
+      "Id": "d7b27ec5136b409981a4c7e47a7afdd1"
     },
     {
       "Start": "e273e2be63b34915865d9106c07a1c58",
@@ -3935,11 +4038,6 @@
       "Id": "f81d6af33a0b4baca5a512e33192c554"
     },
     {
-      "Start": "974a27ec6bb14842bd4d633154d6ea00",
-      "End": "a2230cdb98274e0c84fa7e21fef54677",
-      "Id": "2594dc6c33c343cf96caffcf6e6051e6"
-    },
-    {
       "Start": "d15b2bd54f1942fa89e439eb95a1ebe7",
       "End": "d70f75049d2a46018e0bec40b015ac49",
       "Id": "53e4f17c72164eca8a0053da1050a2bb"
@@ -4016,8 +4114,8 @@
     },
     {
       "Start": "e2bb302132e241129e12aa27b2c28973",
-      "End": "c63a8c9e970f4832aedd3279d1d7cef9",
-      "Id": "3e82b08643fe4864aac42b398af20691"
+      "End": "28cf8a99204a4cdb9d0e3b85c05d101d",
+      "Id": "354b023924dc4800ade8a6574b37a187"
     },
     {
       "Start": "8b946ae52c2d4e1888031710b72ff21f",
@@ -4036,16 +4134,6 @@
     },
     {
       "Start": "de681ceabeb64a9aab28d2af4bbc5dda",
-      "End": "e064e986b2a14732b4c590389eaa9813",
-      "Id": "43ed1510621349c1a2a022a21f65dc42"
-    },
-    {
-      "Start": "de681ceabeb64a9aab28d2af4bbc5dda",
-      "End": "28cf8a99204a4cdb9d0e3b85c05d101d",
-      "Id": "720ca69ecd524fa2b21b4cc29eb9ca06"
-    },
-    {
-      "Start": "de681ceabeb64a9aab28d2af4bbc5dda",
       "End": "265409c21c374593b5e3f126715dbdb0",
       "Id": "ff571e841ddd44859207125e4cff6253"
     },
@@ -4053,6 +4141,21 @@
       "Start": "d23dcb577e4b4d9db5dabaf8fd1ad1ec",
       "End": "876c5b54c4ed41d587cfecc1d81574a8",
       "Id": "97ce944903f74cd39e9a7603f2b25308"
+    },
+    {
+      "Start": "c2b58ba40f034571add99751c139bb77",
+      "End": "dbda1416b6564688994384a6739bb772",
+      "Id": "db6a4370a1c5453b8388a3f2f6f0baa8"
+    },
+    {
+      "Start": "f7b095b7c90a4135991445db556b0003",
+      "End": "c6af7a7831e84575976038ae7405dd04",
+      "Id": "15263b95f14348c3907fe9a68c618ae4"
+    },
+    {
+      "Start": "78faf7e18ad540a7b161387d52d41c2b",
+      "End": "5531009836ee41048545390ebe921634",
+      "Id": "8fd22bff188546dfbd1a4d9e5f5611b3"
     }
   ],
   "Dependencies": [
@@ -4124,8 +4227,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 3854.3118752157479,
-        "Y": -605.91197058158673
+        "X": 657.08258420719676,
+        "Y": 1616.3965379489912
       },
       {
         "ShowGeometry": true,
@@ -4134,8 +4237,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7474.58832727828,
-        "Y": 144.33897572574637
+        "X": 7781.6550781711549,
+        "Y": -331.36152755674834
       },
       {
         "ShowGeometry": true,
@@ -4144,8 +4247,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7011.9067842210843,
-        "Y": 55.626031110613042
+        "X": 7440.9682307169023,
+        "Y": -333.44055790312478
       },
       {
         "ShowGeometry": true,
@@ -4304,8 +4407,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 3368.737513299518,
-        "Y": 276.7975165973005
+        "X": 3248.0729065496025,
+        "Y": 241.1915670645385
       },
       {
         "ShowGeometry": true,
@@ -4314,8 +4417,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 2887.3591960375684,
-        "Y": 293.04702925327297
+        "X": 2766.6945892876529,
+        "Y": 257.44107972051097
       },
       {
         "ShowGeometry": true,
@@ -4324,8 +4427,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 3080.7191555462473,
-        "Y": 484.38291262558846
+        "X": 2960.0545487963318,
+        "Y": 448.77696309282646
       },
       {
         "ShowGeometry": true,
@@ -4334,8 +4437,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 2965.4387440727892,
-        "Y": 521.70747538981163
+        "X": 2844.7741373228737,
+        "Y": 486.10152585704964
       },
       {
         "ShowGeometry": true,
@@ -4344,8 +4447,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 3349.4537131677066,
-        "Y": 1015.8346935115171
+        "X": 3302.6234572408171,
+        "Y": 1152.0681652988321
       },
       {
         "ShowGeometry": true,
@@ -4354,8 +4457,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 2939.8177555557941,
-        "Y": 1079.986295735411
+        "X": 2892.9874996289045,
+        "Y": 1216.219767522726
       },
       {
         "ShowGeometry": true,
@@ -4364,8 +4467,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 4165.6810239360693,
-        "Y": 722.92410616646816
+        "X": 4072.02051208229,
+        "Y": 761.23977010665089
       },
       {
         "ShowGeometry": true,
@@ -4374,8 +4477,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 3982.2236321310897,
-        "Y": 782.23978868333506
+        "X": 3888.5631202773106,
+        "Y": 820.55545262351779
       },
       {
         "ShowGeometry": true,
@@ -4384,8 +4487,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 3892.9551518061817,
-        "Y": 898.07252538005173
+        "X": 3799.2946399524026,
+        "Y": 936.38818932023446
       },
       {
         "ShowGeometry": true,
@@ -4394,8 +4497,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 3768.3598526846454,
-        "Y": 682.54561349295955
+        "X": 3674.6993408308663,
+        "Y": 720.86127743314228
       },
       {
         "ShowGeometry": true,
@@ -4404,8 +4507,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 4566.7669932910658,
-        "Y": 619.33414181646435
+        "X": 4473.1064814372867,
+        "Y": 657.64980575664708
       },
       {
         "ShowGeometry": true,
@@ -4414,8 +4517,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 4822.7056025507572,
-        "Y": 495.4195671811417
+        "X": 4835.4774905308177,
+        "Y": 486.90497519443488
       },
       {
         "ShowGeometry": true,
@@ -4424,8 +4527,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 5737.1738308327367,
-        "Y": 729.28703905612372
+        "X": 5720.1446468593222,
+        "Y": 771.85999898965963
       },
       {
         "ShowGeometry": true,
@@ -4434,8 +4537,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 5364.7857262312782,
-        "Y": 788.30340315224851
+        "X": 5347.7565422578637,
+        "Y": 830.87636308578442
       },
       {
         "ShowGeometry": true,
@@ -4534,18 +4637,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 5203.9312134869888,
-        "Y": 498.76875997885008
-      },
-      {
-        "ShowGeometry": false,
-        "Name": "Preview Curves",
-        "Id": "531fc049ed37471bb2dc687ff4dc900f",
-        "IsSetAsInput": false,
-        "IsSetAsOutput": false,
-        "Excluded": false,
-        "X": 7843.868134508115,
-        "Y": 194.148645240851
+        "X": 5216.7031014670492,
+        "Y": 490.25416799214327
       },
       {
         "ShowGeometry": true,
@@ -4554,8 +4647,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8003.8428675415944,
-        "Y": -600.66051370165223
+        "X": 7579.0138174897756,
+        "Y": 986.14336578150437
       },
       {
         "ShowGeometry": true,
@@ -4564,8 +4657,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7245.2921424208562,
-        "Y": -275.78957007127565
+        "X": 6800.7300191622062,
+        "Y": 1301.1477728084656
       },
       {
         "ShowGeometry": true,
@@ -4574,8 +4667,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7288.25582821336,
-        "Y": -489.55472773312
+        "X": 6843.69370495471,
+        "Y": 1087.3826151466212
       },
       {
         "ShowGeometry": true,
@@ -4584,8 +4677,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7805.1256771447752,
-        "Y": -522.16745443922514
+        "X": 7380.2966270929564,
+        "Y": 1064.6364250439315
       },
       {
         "ShowGeometry": true,
@@ -4594,8 +4687,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 6690.7383332971749,
-        "Y": -270.12981757948478
+        "X": 6246.1762100385249,
+        "Y": 1306.8075253002564
       },
       {
         "ShowGeometry": true,
@@ -4604,8 +4697,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 6601.6774040465316,
-        "Y": -722.51060949210091
+        "X": 6157.1152807878816,
+        "Y": 854.4267333876403
       },
       {
         "ShowGeometry": true,
@@ -4614,8 +4707,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 6517.1911919069416,
-        "Y": -483.88233247852122
+        "X": 6072.6290686482916,
+        "Y": 1093.05501040122
       },
       {
         "ShowGeometry": true,
@@ -4624,8 +4717,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7705.70939186402,
-        "Y": -669.54535678576053
+        "X": 7280.8803418122016,
+        "Y": 917.25852269739607
       },
       {
         "ShowGeometry": true,
@@ -4634,8 +4727,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7702.0736990956611,
-        "Y": -366.28326007857254
+        "X": 7277.2446490438424,
+        "Y": 1220.5206194045841
       },
       {
         "ShowGeometry": true,
@@ -4644,18 +4737,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7290.8347818256,
-        "Y": -716.07491111318063
-      },
-      {
-        "ShowGeometry": true,
-        "Name": "Watch",
-        "Id": "5f85c652674d4164b5816cbab7b059bf",
-        "IsSetAsInput": false,
-        "IsSetAsOutput": false,
-        "Excluded": false,
-        "X": 9014.1689725965971,
-        "Y": -1027.5686509156594
+        "X": 6846.27265856695,
+        "Y": 860.86243176656058
       },
       {
         "ShowGeometry": true,
@@ -4664,8 +4747,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8714.4957729553844,
-        "Y": -637.46167528136607
+        "X": 8712.3560641982767,
+        "Y": 490.84882704738163
       },
       {
         "ShowGeometry": true,
@@ -4674,8 +4757,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7972.0863939105839,
-        "Y": -1503.373112713718
+        "X": 7519.9105108293188,
+        "Y": 18.328961818769358
       },
       {
         "ShowGeometry": true,
@@ -4684,8 +4767,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8060.8892700760789,
-        "Y": -1185.797010096963
+        "X": 7608.7133869948138,
+        "Y": 335.90506443552431
       },
       {
         "ShowGeometry": true,
@@ -4694,8 +4777,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7983.5985573957969,
-        "Y": -903.4729506122236
+        "X": 7531.4226743145318,
+        "Y": 618.22912392026376
       },
       {
         "ShowGeometry": true,
@@ -4704,8 +4787,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8258.7270800184342,
-        "Y": -1206.4822467327936
+        "X": 7806.5511969371692,
+        "Y": 315.2198277996938
       },
       {
         "ShowGeometry": true,
@@ -4714,8 +4797,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8258.2135150795457,
-        "Y": -917.73624031773511
+        "X": 7806.0376319982806,
+        "Y": 603.96583421475225
       },
       {
         "ShowGeometry": true,
@@ -4724,8 +4807,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8258.1442195858017,
-        "Y": -1538.4485553552095
+        "X": 7805.9683365045366,
+        "Y": -16.746480822722106
       },
       {
         "ShowGeometry": true,
@@ -4734,18 +4817,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8516.0709145191886,
-        "Y": -1232.0733443145118
-      },
-      {
-        "ShowGeometry": true,
-        "Name": "Watch",
-        "Id": "d2a8dd69e30249a9986be80ae503546d",
-        "IsSetAsInput": false,
-        "IsSetAsOutput": false,
-        "Excluded": false,
-        "X": 5166.5162136957942,
-        "Y": 1266.6237980404408
+        "X": 8532.9022557196,
+        "Y": 544.34754726746485
       },
       {
         "ShowGeometry": true,
@@ -4754,8 +4827,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 2812.5302499847267,
-        "Y": 748.839507725364
+        "X": 2833.0426258160046,
+        "Y": 744.52111281351608
       },
       {
         "ShowGeometry": true,
@@ -4764,8 +4837,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7648.12270222242,
-        "Y": 275.92597841523548
+        "X": 8541.8258671820622,
+        "Y": -96.317958619575961
       },
       {
         "ShowGeometry": true,
@@ -4774,8 +4847,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7577.4889343288751,
-        "Y": 833.03453549377139
+        "X": 8862.7146699536388,
+        "Y": -31.332626251473357
       },
       {
         "ShowGeometry": true,
@@ -4784,8 +4857,18 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8432.9466452947636,
-        "Y": -103.4648027162259
+        "X": 9182.9235206450685,
+        "Y": -30.47523333547872
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Code Block",
+        "Id": "61072c2a49ac4a4d819e3090c913e2a4",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 7458.4735156397464,
+        "Y": 1490.6185951557804
       }
     ],
     "Annotations": [
@@ -4795,12 +4878,12 @@
         "Nodes": [
           "769d28ab6e834ca786f8dba985f5c58c"
         ],
-        "Left": 3844.3118752157479,
-        "Top": -658.91197058158673,
+        "Left": 647.08258420719676,
+        "Top": 1563.3965379489912,
         "Width": 417.0,
         "Height": 147.0,
         "FontSize": 36.0,
-        "InitialTop": -605.91197058158673,
+        "InitialTop": 1616.3965379489912,
         "InitialHeight": 145.0,
         "TextblockHeight": 43.0,
         "Background": "#FFA4E1FF"
@@ -4888,12 +4971,12 @@
           "92d847ae8ca0479c930a8e5ca6b07efd"
         ],
         "Left": 2126.3779867142216,
-        "Top": 695.839507725364,
-        "Width": 898.152263270505,
-        "Height": 152.44238232093085,
+        "Top": 691.52111281351608,
+        "Width": 918.664639101783,
+        "Height": 156.76077723277876,
         "FontSize": 36.0,
-        "InitialTop": 748.839507725364,
-        "InitialHeight": 149.29693572507028,
+        "InitialTop": 744.52111281351608,
+        "InitialHeight": 151.44238232093085,
         "TextblockHeight": 43.0,
         "Background": "#FFD8D8D8"
       },
@@ -4906,12 +4989,12 @@
           "79f6ae6fc4c6472194c311d4318950af",
           "7a2c30c4dc314d369306f76b3296c62f"
         ],
-        "Left": 2877.3591960375684,
-        "Top": 223.7975165973005,
+        "Left": 2756.6945892876529,
+        "Top": 188.1915670645385,
         "Width": 866.37831726194963,
         "Height": 418.90995879251113,
         "FontSize": 36.0,
-        "InitialTop": 276.7975165973005,
+        "InitialTop": 241.1915670645385,
         "InitialHeight": 389.90995879251113,
         "TextblockHeight": 43.0,
         "Background": "#FFA4E1FF"
@@ -4923,12 +5006,12 @@
           "1fba53496ac2443eb5b1271e7eebd72f",
           "92e4a80332424eae90038c9becb51009"
         ],
-        "Left": 2929.8177555557941,
-        "Top": 962.83469351151712,
+        "Left": 2882.9874996289045,
+        "Top": 1099.0681652988321,
         "Width": 816.63595761191254,
         "Height": 380.0,
         "FontSize": 36.0,
-        "InitialTop": 1015.8346935115171,
+        "InitialTop": 1152.0681652988321,
         "InitialHeight": 209.15160222389386,
         "TextblockHeight": 43.0,
         "Background": "#FFA4E1FF"
@@ -4943,12 +5026,12 @@
           "33a86c7f2ed8444e9e3a21e7403097f7",
           "79bdb6036c854de791d5f1f430fb23b6"
         ],
-        "Left": 3758.3598526846454,
-        "Top": 566.33414181646435,
+        "Left": 3664.6993408308663,
+        "Top": 604.64980575664708,
         "Width": 1004.4071406064204,
         "Height": 452.73838356358738,
         "FontSize": 36.0,
-        "InitialTop": 619.33414181646435,
+        "InitialTop": 657.64980575664708,
         "InitialHeight": 423.73838356358738,
         "TextblockHeight": 43.0,
         "Background": "#FF48B9FF"
@@ -4960,12 +5043,12 @@
           "59da3467ea454b3e962b138671787907",
           "d2eed58b05e04b01a467fa85b6049731"
         ],
-        "Left": 5354.7857262312782,
-        "Top": 676.28703905612372,
+        "Left": 5337.7565422578637,
+        "Top": 718.85999898965963,
         "Width": 779.38810460145851,
         "Height": 380.00000000000011,
         "FontSize": 36.0,
-        "InitialTop": 729.28703905612372,
+        "InitialTop": 771.85999898965963,
         "InitialHeight": 204.01636409612479,
         "TextblockHeight": 43.0,
         "Background": "#FFA4E1FF"
@@ -5016,12 +5099,12 @@
           "bff095489e3c4b8fa6a1e3b55ca0d294",
           "63cb6572dbb446d8b6e22aee34e132b9"
         ],
-        "Left": 4812.7056025507572,
-        "Top": 442.4195671811417,
+        "Left": 4825.4774905308177,
+        "Top": 433.90497519443488,
         "Width": 643.22561093623153,
         "Height": 159.34919279770838,
         "FontSize": 36.0,
-        "InitialTop": 495.4195671811417,
+        "InitialTop": 486.90497519443488,
         "InitialHeight": 148.34919279770838,
         "TextblockHeight": 43.0,
         "Background": "#FFD8D8D8"
@@ -5031,16 +5114,15 @@
         "Title": "Getting Room Data",
         "Nodes": [
           "431385d3712d4ee094e4e7d13faecaf5",
-          "30e640f9a8804ab29056f751032dbf43",
-          "531fc049ed37471bb2dc687ff4dc900f"
+          "30e640f9a8804ab29056f751032dbf43"
         ],
-        "Left": 7001.9067842210843,
-        "Top": 2.6260311106130416,
-        "Width": 975.96135028703065,
-        "Height": 312.71294461513332,
+        "Left": 7430.9682307169023,
+        "Top": -386.44055790312478,
+        "Width": 513.68684745425253,
+        "Height": 226.07903034637644,
         "FontSize": 36.0,
-        "InitialTop": 55.626031110613042,
-        "InitialHeight": 220.06464221342793,
+        "InitialTop": -333.44055790312478,
+        "InitialHeight": 233.71294461513332,
         "TextblockHeight": 43.0,
         "Background": "#FF848484"
       },
@@ -5051,12 +5133,12 @@
           "5368e7b891b04bfb9e6d37dfe5625b83",
           "a3f6fde6118649dbba8320e76a536d4c"
         ],
-        "Left": 6507.1911919069416,
-        "Top": -542.55472773312,
+        "Left": 6062.6290686482916,
+        "Top": 1034.3826151466212,
         "Width": 1086.0646363064179,
         "Height": 198.0,
         "FontSize": 36.0,
-        "InitialTop": -489.55472773312,
+        "InitialTop": 1087.3826151466212,
         "InitialHeight": 150.67239525459877,
         "TextblockHeight": 43.0,
         "Background": "#FFA4E1FF"
@@ -5068,12 +5150,12 @@
           "82e28cc59c1b4b3e86a7caf91adf054c",
           "e6fbce94a1854402acaed0bfe2671adf"
         ],
-        "Left": 6591.6774040465316,
-        "Top": -775.51060949210091,
+        "Left": 6147.1152807878816,
+        "Top": 801.4267333876403,
         "Width": 1004.1573777790682,
         "Height": 204.43569837892028,
         "FontSize": 36.0,
-        "InitialTop": -722.51060949210091,
+        "InitialTop": 854.4267333876403,
         "InitialHeight": 151.43569837892028,
         "TextblockHeight": 43.0,
         "Background": "#FFA4E1FF"
@@ -5086,12 +5168,12 @@
           "35fa81f9137649e3beea3c0d9cb1a6b3",
           "7afe543729ae44688a72674f7988728b"
         ],
-        "Left": 6680.7383332971749,
-        "Top": -328.78957007127565,
+        "Left": 6236.1762100385249,
+        "Top": 1248.1477728084656,
         "Width": 905.55380912368128,
         "Height": 265.36648420532765,
         "FontSize": 36.0,
-        "InitialTop": -275.78957007127565,
+        "InitialTop": 1301.1477728084656,
         "InitialHeight": 250.36648420532765,
         "TextblockHeight": 43.0,
         "Background": "#FFA4E1FF"
@@ -5105,12 +5187,12 @@
           "c1261e69cf6e4ea59690e178bcf7abc8",
           "5726f593460c41f4b53dcba9226b739a"
         ],
-        "Left": 7692.0736990956611,
-        "Top": -722.54535678576053,
+        "Left": 7267.2446490438424,
+        "Top": 864.25852269739607,
         "Width": 691.76916844593325,
         "Height": 477.262096707188,
         "FontSize": 36.0,
-        "InitialTop": -669.54535678576053,
+        "InitialTop": 917.25852269739607,
         "InitialHeight": 448.262096707188,
         "TextblockHeight": 43.0,
         "Background": "#FF48B9FF"
@@ -5123,12 +5205,12 @@
           "69f1a4c7ea144956bfd9b7d6212162b1",
           "0193063b0f404e798efb4175b50fd060"
         ],
-        "Left": 7925.406985774,
-        "Top": -1050.7039762261536,
+        "Left": 7473.2311026927346,
+        "Top": 470.99809830633376,
         "Width": 462.80652930554606,
         "Height": 303.96773590841849,
         "FontSize": 36.0,
-        "InitialTop": -954.7039762261536,
+        "InitialTop": 566.99809830633376,
         "InitialHeight": 196.23102561393,
         "TextblockHeight": 86.0,
         "Background": "#FFFF7BAC"
@@ -5141,12 +5223,12 @@
           "ce3f6399ca5c4694a10517e2572aebae",
           "65d6c31d6e9046f68debbb028bd4b2a5"
         ],
-        "Left": 7902.985090573492,
-        "Top": -1332.8693399284173,
-        "Width": 485.74198944494219,
+        "Left": 7450.8092074922279,
+        "Top": 188.83273460407008,
+        "Width": 485.74198944494128,
         "Height": 268.07232983145423,
         "FontSize": 36.0,
-        "InitialTop": -1236.8693399284173,
+        "InitialTop": 284.83273460407008,
         "InitialHeight": 196.07232983145423,
         "TextblockHeight": 86.0,
         "Background": "#FFFF7BAC"
@@ -5159,13 +5241,64 @@
           "2035a63d614e440385d57c2cca8a4e19",
           "42070e8a37a04a1caf5e8c190aacb2d6"
         ],
-        "Left": 7923.7792130217185,
-        "Top": -1608.8282777354223,
+        "Left": 7471.6033299404535,
+        "Top": -87.1262032029349,
         "Width": 464.36500656408316,
         "Height": 262.45516502170426,
         "FontSize": 36.0,
-        "InitialTop": -1555.8282777354223,
+        "InitialTop": -34.1262032029349,
         "InitialHeight": 197.45516502170426,
+        "TextblockHeight": 43.0,
+        "Background": "#FFD8D8D8"
+      },
+      {
+        "Id": "8696ec56ab68400a9e56fd9f889367a4",
+        "Title": "Observing Results of Room Data Collection",
+        "Nodes": [
+          "67ca8b29e6ea47828dab6b30fe0450b7",
+          "0a9502a58c014d1f8a0319e9733c6ba1",
+          "1c539b1c45254eeb9412d62833d8d460"
+        ],
+        "Left": 8531.8258671820622,
+        "Top": -149.31795861957596,
+        "Width": 867.09765346300628,
+        "Height": 496.84272528409724,
+        "FontSize": 36.0,
+        "InitialTop": -96.317958619575961,
+        "InitialHeight": 473.84272528409724,
+        "TextblockHeight": 43.0,
+        "Background": "#FFB9F9E1"
+      },
+      {
+        "Id": "a78412604b284f6eadc307a27079e244",
+        "Title": "Exporting Final Results",
+        "Nodes": [
+          "cf2d92cfff314a389a08c62d03df93bd",
+          "83f6479a32204b8789c726701b5fd22f"
+        ],
+        "Left": 8522.9022557196,
+        "Top": 394.84882704738163,
+        "Width": 323.45380847867636,
+        "Height": 319.0,
+        "FontSize": 36.0,
+        "InitialTop": 490.84882704738163,
+        "InitialHeight": 295.74798836357354,
+        "TextblockHeight": 86.0,
+        "Background": "#FF71C6A8"
+      },
+      {
+        "Id": "d4e20678defc43738bc475539b043f16",
+        "Title": "Collecting Data for Run Log",
+        "Nodes": [
+          "61072c2a49ac4a4d819e3090c913e2a4"
+        ],
+        "Left": 7448.4735156397464,
+        "Top": 1437.6185951557804,
+        "Width": 504.0,
+        "Height": 282.0,
+        "FontSize": 36.0,
+        "InitialTop": 1490.6185951557804,
+        "InitialHeight": 259.0,
         "TextblockHeight": 43.0,
         "Background": "#FFD8D8D8"
       },
@@ -5173,8 +5306,8 @@
         "Id": "7afe543729ae44688a72674f7988728b",
         "Title": "New Metadata models can be added, but logic should also be added to the python script to accomodate the additions.  This script does not generate the metadata, it only makes entries in the json export to accomodate this data.",
         "Nodes": [],
-        "Left": 6692.689791793905,
-        "Top": -165.423085865948,
+        "Left": 6248.127668535255,
+        "Top": 1411.5142570137932,
         "Width": 0.0,
         "Height": 0.0,
         "FontSize": 36.0,
@@ -5187,8 +5320,8 @@
         "Id": "65d6c31d6e9046f68debbb028bd4b2a5",
         "Title": "First line should be identical to metat data key from data shapes",
         "Nodes": [],
-        "Left": 7912.985090573492,
-        "Top": -1236.8693399284173,
+        "Left": 7460.8092074922279,
+        "Top": 284.83273460407008,
         "Width": 0.0,
         "Height": 0.0,
         "FontSize": 36.0,
@@ -5201,8 +5334,8 @@
         "Id": "0193063b0f404e798efb4175b50fd060",
         "Title": "First line should be identical to metat data key from data shapes",
         "Nodes": [],
-        "Left": 7935.406985774,
-        "Top": -954.7039762261536,
+        "Left": 7483.2311026927346,
+        "Top": 566.99809830633376,
         "Width": 0.0,
         "Height": 0.0,
         "FontSize": 36.0,
@@ -5215,8 +5348,8 @@
         "Id": "42070e8a37a04a1caf5e8c190aacb2d6",
         "Title": "First line should be identical to metat data key from data shapes",
         "Nodes": [],
-        "Left": 7933.7792130217185,
-        "Top": -1555.8282777354223,
+        "Left": 7481.6033299404535,
+        "Top": -34.1262032029349,
         "Width": 0.0,
         "Height": 0.0,
         "FontSize": 36.0,
@@ -5226,8 +5359,8 @@
         "Background": "#FFC1D676"
       }
     ],
-    "X": -1871.2845465262658,
-    "Y": 1218.1061562577563,
-    "Zoom": 0.29798408706723917
+    "X": -1473.1440424253838,
+    "Y": 366.225379610691,
+    "Zoom": 0.36555440475085976
   }
 }
