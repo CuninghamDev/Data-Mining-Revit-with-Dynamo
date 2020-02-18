@@ -1,0 +1,1 @@
+"this script will be used to systematically normalize the departments for a set of projects"
