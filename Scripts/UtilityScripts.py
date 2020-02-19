@@ -1,3 +1,5 @@
+import os
+
 """
 Finds the unique values in a list
 """
@@ -31,3 +33,16 @@ def logger(_listOfItemsToPrint):
     print()
     print("/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////")
 
+
+"""
+Checks if a directory exists and if it does not, it creates it
+It returns a string for printing purposes that will inform the user if the directory did or did not exist
+THIS SCRIPT REQUIRES THE OS LIBRARY TO BE LOADED
+"""
+def createDirectoryIfDoesntExist(_path):
+    if os.path.isdir(_path):
+        textOut = "the path " + str(_path) + " already exists"
+    else:
+        textOut = "a directory has been created at " + str(_path)
+        os.mkdir(_path)
+    return textOut

@@ -5,52 +5,14 @@ import xlsxwriter
 import shutil
 import json
 from UtilityScripts import *
-
-#########################################################################################################
-#########################################    USER INPUTS    #############################################
-#########################################################################################################
-#########################################################################################################
-#########################################################################################################
-#########################################################################################################
-"ideally only the only inputs a user will need to change are the directories listed below."
-"in some cases a user may find they need to change additional directory information (such as folder names), but hopefully this would be relatively rare"
-
-"the input directory is the file directory containing all the json files exported from Revit with the Dynamo data mining script"
-inputDirectory = "\\\cga\Data\General\Dept\BIM\Dynamo\Mining Program Data\Data\Campus4\RawData"
-
-"the directory that will be used to contain all normalized project data.  This can be the same directory as the input, or can be totally different."
-"several folders will be created in the working directory, so it should be flexible enough to have a lot of new data added to it."
-workingDirectory1 = "\\\cga\Data\General\Dept\BIM\Dynamo\Mining Program Data\Data\Campus4"
-workingDirectory2 = "\\\cga\Data\General\Dept\BIM\Dynamo\Mining Program Data\Data\TestNormalizationFolder"
-
-"the name of the folder in the working directory which will contain the normalized data"
-normalizedFileFolder = "NormalizedData"
-
-"the name of the excel file that will act as a key for normalizing department data"
-normalizeDepartmentKey = "NormalizeDeptsKey"
-#########################################################################################################
-#########################################################################################################
-#########################################################################################################
-#########################################################################################################
-#########################################################################################################
-#########################################################################################################
-#########################################################################################################
-#########################################################################################################
-#########################################################################################################
+from INPUTS import inputDirectory,workingDirectory,normalizedFileFolder,normalizeDepartmentKey
 
 inputDirectory = os.path.normpath(inputDirectory)
-workingDirectory = os.path.normpath(workingDirectory1)
+workingDirectory = os.path.normpath(workingDirectory)
 
 normalizedFileDirectory = os.path.join(workingDirectory,normalizedFileFolder)
-
-if os.path.isdir(normalizedFileDirectory):
-    normalizedDirText = "the specified directory for normalized data already exists at..."
-else:
-    normalizedDirText = "the specified directory for normalized data did not exist, but has been created at..."
-    os.mkdir(normalizedFileDirectory)
-
+normalizedDirText = createDirectoryIfDoesntExist(normalizedFileDirectory)
 logger(["input directory...",inputDirectory,"working directory...",workingDirectory,normalizedDirText,normalizedFileDirectory])
-
 
 buildingJsonNames = []
 filesInInputDirectory = os.listdir(inputDirectory)
