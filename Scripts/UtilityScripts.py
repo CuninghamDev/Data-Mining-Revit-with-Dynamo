@@ -13,12 +13,49 @@ def uniqueValues(_listOfValues):
         for uniqueValue in _valuesOut:
             if value == uniqueValue:
                 isUnique = False
+                break
 
         if isUnique:
             _valuesOut.append(value)
             
     _valuesOut.sort()        
     return _valuesOut
+
+
+"""
+Finds all the unique values in a list, and returns a list of these values and a list of the number of their occurences
+"""
+def uniqueValuesAndCounts(_listOfValues):
+    _listsOut = []
+    _valuesOut = []
+    _countsOfValues = []
+    _valuesOut.append(_listOfValues.pop(0))
+    _countsOfValues.append(1)
+
+    for i,value in enumerate(_listOfValues):
+        isUnique = True
+        
+        for j,uniqueValue in enumerate(_valuesOut):
+            if value == uniqueValue:
+                isUnique = False
+                uniqueIndex = j
+                break
+
+        if isUnique:
+            _valuesOut.append(value)
+            _countsOfValues.append(1)
+        else:
+            _countsOfValues[uniqueIndex] += 1
+            
+    for i,uniqueVal in enumerate(_valuesOut):
+        rowObj = {}
+        itemCount = _countsOfValues[i]
+        rowObj["count"] = int(itemCount)
+        rowObj["value"] = uniqueVal
+        _listsOut.append(rowObj)
+
+    _sortedListOut = sorted(_listsOut, key=lambda i: (i["count"], i["value"]), reverse=True)
+    return _sortedListOut
 
 
 """

@@ -2,11 +2,14 @@
 _____INPUTS FILE_____
 This file exists as the centralized inputs file for all python scripts in this directory
 
-The only dependancy for these files is XlsxWriter which should be installed via PIP
-
 Ideally the only inputs a user will need to manage are those in the directories section, but if folder / file naming conventions are desired these can be adjusted as well
 
 Once a set of runs have begun it is advised not to adjust parameters as these could have unanticipated consequences
+
+__Dependencies__
+XlsxWriter
+pandas
+xlrd
 """
 
 ##############################################################################################################################################################
@@ -51,5 +54,7 @@ another sheet will function as a log for all keys that have been used to generat
 (a long term future for these files could be to guide a ML algorithm and automate this process, but this would likely require substantial amounts of data... so please save them)
 """
 normalizeDepartmentKey = "NormalizeDeptsKey"
+normalizationLogSheetName = "normalization log"
+normalizationKeySheetName = "current normalization key"
 
 ##############################################################################################################################################################

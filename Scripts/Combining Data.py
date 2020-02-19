@@ -6,7 +6,7 @@ from UtilityScripts import *
 from INPUTS import workingDirectory, compiledProjectFolder, normalizedFileFolder
 
 jsonOutHumanReadable = True
-
+compiledFileName = "compiledBuildingData"
 compiledProjectPath = os.path.join(workingDirectory, compiledProjectFolder)
 print(createDirectoryIfDoesntExist(compiledProjectPath))
 
@@ -23,7 +23,7 @@ for jsonFileName in filesInNormalizedFolder:
         compiledJsons[projectName] = data
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_")
-compiledJsonFileName = timestamp + "compiledBuildingData" + ".json"
+compiledJsonFileName = timestamp + compiledFileName + ".json"
 compiledJsonFilePath = os.path.join(compiledProjectPath,compiledJsonFileName)
 with open(compiledJsonFilePath, 'w') as jsonFile:
     if jsonOutHumanReadable:

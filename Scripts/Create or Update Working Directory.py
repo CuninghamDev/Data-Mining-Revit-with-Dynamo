@@ -5,14 +5,14 @@ import xlsxwriter
 import shutil
 import json
 from UtilityScripts import *
-from INPUTS import inputDirectory,workingDirectory,normalizedFileFolder,normalizeDepartmentKey
+from INPUTS import inputDirectory,workingDirectory,normalizedFileFolder,normalizeDepartmentKey, normalizationKeySheetName, normalizationLogSheetName
 
 inputDirectory = os.path.normpath(inputDirectory)
 workingDirectory = os.path.normpath(workingDirectory)
 
 normalizedFileDirectory = os.path.join(workingDirectory,normalizedFileFolder)
 normalizedDirText = createDirectoryIfDoesntExist(normalizedFileDirectory)
-logger(["input directory...",inputDirectory,"working directory...",workingDirectory,normalizedDirText,normalizedFileDirectory])
+logger(["input directory is " + inputDirectory,"working directory is " + workingDirectory,normalizedDirText + " for the normalized program data"])
 
 buildingJsonNames = []
 filesInInputDirectory = os.listdir(inputDirectory)
@@ -59,7 +59,7 @@ normKeyName = os.path.join(workingDirectory,normalizeDepartmentKey+".xlsx")
 
 if not os.path.exists(normKeyName):
     normKeyWorkbook = xlsxwriter.Workbook(normKeyName)
-    normLogSheet = normKeyWorkbook.add_worksheet("normalization log")
-    newNormKeySheet = normKeyWorkbook.add_worksheet("current normalization key")
+    normLogSheet = normKeyWorkbook.add_worksheet(normalizationLogSheetName)
+    newNormKeySheet = normKeyWorkbook.add_worksheet(normalizationKeySheetName)
     normKeyWorkbook.close()
-    logger(["created a new excel file to use when tracking the department normalization process","the file name is...",normKeyName])
+    logger(["created a new excel file to use when tracking the department normalization process","the file name is "+ normKeyName])
