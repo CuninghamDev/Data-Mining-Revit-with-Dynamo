@@ -20,32 +20,36 @@ for fileName in normalizedJsonDirectory:
     jsonFilePath = os.path.join(workingDirectory,normalizedFileFolder,fileName)
     allDepartments = getAllDepartments(jsonFilePath,allDepartments)
 
-uniqueDepartments = uniqueValuesAndCounts(allDepartments)
+uniqueDepartments = uniqueValuesAndCounts(allDepartments,"Departments","Room Count")
 uniqueDepartmentsDf = pd.DataFrame(data=uniqueDepartments)
 
 
 excelFilePath = os.path.join(workingDirectory,normalizeDepartmentKey+".xlsx")
 
 normLogDataFrame = pd.read_excel(io=excelFilePath, sheet_name=normalizationLogSheetName)
-normLogDict = normLogDataFrame.to_dict()
+normLogKeys = normLogDataFrame.to_dict().keys()
+normLogDict = normLogDataFrame.to_dict('records')
 
+if normLogDict:
+    normLogExists = True
+else:
+    normLogExists = False
 
 normKeyName = os.path.join(workingDirectory,normalizeDepartmentKey+".xlsx")
 normKeyWorkbook = xlsxwriter.Workbook(normKeyName)
-normLogSheet = normKeyWorkbook.add_worksheet(normalizationLogSheetName)
 
+normLogSheet = normKeyWorkbook.add_worksheet(normalizationLogSheetName)
+s = normLogSheet
+if normLogExists:
+    writeDictToExcelSheet(normLogDict,normLogKeys,s)
+else:
+    writeDictToExcelSheet(uniqueDepartments,["Room Count","Departments"],s)
 
 newNormKeySheet = normKeyWorkbook.add_worksheet(normalizationKeySheetName)
-row = 0
-col = 0
 s = newNormKeySheet
-s.write(row,col,"Departments")
-s.write(row,col+1,"Count of Occurences")
-for i,rowDict in enumerate(uniqueDepartments):
-    for j,rowKey in enumerate(rowDict):
-        dataItem = rowDict[rowKey]
-        s.write(i+1,j,dataItem)
+writeDictToExcelSheet(uniqueDepartments,["Room Count","Departments"],s)
+s.write(0,2,"New Departments")
 
 normKeyWorkbook.close()
-# print(normLogDict)
+
 

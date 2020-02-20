@@ -1,4 +1,5 @@
 import os
+import xlsxwriter
 
 """
 Finds the unique values in a list
@@ -25,7 +26,7 @@ def uniqueValues(_listOfValues):
 """
 Finds all the unique values in a list, and returns a list of these values and a list of the number of their occurences
 """
-def uniqueValuesAndCounts(_listOfValues):
+def uniqueValuesAndCounts(_listOfValues,_valueKey,_countKey):
     _listsOut = []
     _valuesOut = []
     _countsOfValues = []
@@ -50,11 +51,11 @@ def uniqueValuesAndCounts(_listOfValues):
     for i,uniqueVal in enumerate(_valuesOut):
         rowObj = {}
         itemCount = _countsOfValues[i]
-        rowObj["count"] = int(itemCount)
-        rowObj["value"] = uniqueVal
+        rowObj[_countKey] = int(itemCount)
+        rowObj[_valueKey] = uniqueVal
         _listsOut.append(rowObj)
 
-    _sortedListOut = sorted(_listsOut, key=lambda i: (i["count"], i["value"]), reverse=True)
+    _sortedListOut = sorted(_listsOut, key=lambda i: (i[_countKey], i[_valueKey]), reverse=True)
     return _sortedListOut
 
 
@@ -83,3 +84,19 @@ def createDirectoryIfDoesntExist(_path):
         textOut = "a directory has been created at " + str(_path)
         os.mkdir(_path)
     return textOut
+
+"""
+This function is used with the xlsx writer package to write a list of dictionaries to a given sheet of a workbook
+Each dictionary represents a row of the excel file, and the keys represent the headers
+This function will not work properly if the dictionaries do not have identical keys
+"""
+def writeDictToExcelSheet(_listOfDicts,_listOfKeys,_sheet):
+    for i,_key in enumerate(_listOfKeys):
+        _sheet.write(0,i,_key)
+    for i,_rowDict in enumerate(_listOfDicts):
+        for j,_key in enumerate(_listOfKeys):
+            for _itemKey in _rowDict:
+                if _itemKey == _key:
+                    _sheet.write(i+1,j,_rowDict[_key])
+            
+
