@@ -20,14 +20,9 @@ for fileName in normalizedJsonDirectory:
     jsonFilePath = os.path.join(workingDirectory,normalizedFileFolder,fileName)
     allDepartments = getAllDepartments(jsonFilePath,allDepartments)
 
-uniqueDepartments = uniqueValuesAndCounts(allDepartments,"Departments","Room Count")
-uniqueDepartmentsDf = pd.DataFrame(data=uniqueDepartments)
-
-
 excelFilePath = os.path.join(workingDirectory,normalizeDepartmentKey+".xlsx")
-
 normLogDataFrame = pd.read_excel(io=excelFilePath, sheet_name=normalizationLogSheetName)
-normLogKeys = normLogDataFrame.to_dict().keys()
+normLogKeys = list(normLogDataFrame.to_dict().keys())
 normLogDict = normLogDataFrame.to_dict('records')
 
 if normLogDict:
@@ -35,8 +30,16 @@ if normLogDict:
 else:
     normLogExists = False
 
+uniqueDepartments = uniqueValuesAndCounts(allDepartments,"Departments","Room Count")
+uniqueDepartmentsDf = pd.DataFrame(data=uniqueDepartments)
+
 normKeyName = os.path.join(workingDirectory,normalizeDepartmentKey+".xlsx")
 normKeyWorkbook = xlsxwriter.Workbook(normKeyName)
+
+newNormKeySheet = normKeyWorkbook.add_worksheet(normalizationKeySheetName)
+s = newNormKeySheet
+writeDictToExcelSheet(uniqueDepartments,["Room Count","Departments","Departments"],s)
+s.write(0,2,"New Departments")
 
 normLogSheet = normKeyWorkbook.add_worksheet(normalizationLogSheetName)
 s = normLogSheet
@@ -44,11 +47,6 @@ if normLogExists:
     writeDictToExcelSheet(normLogDict,normLogKeys,s)
 else:
     writeDictToExcelSheet(uniqueDepartments,["Room Count","Departments"],s)
-
-newNormKeySheet = normKeyWorkbook.add_worksheet(normalizationKeySheetName)
-s = newNormKeySheet
-writeDictToExcelSheet(uniqueDepartments,["Room Count","Departments"],s)
-s.write(0,2,"New Departments")
 
 normKeyWorkbook.close()
 
