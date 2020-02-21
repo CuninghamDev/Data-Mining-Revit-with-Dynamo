@@ -40,7 +40,7 @@ The normalizedFileFolder is where data that has extra parameters for the normali
 The compiledProjectFolder is where time / date stamped compiled data will be saved when the "Combining Data.py" script is run.  This script will not delete older data, but a user will likely want to manually manage this to avoid a build up over files.
 """
 normalizedFileFolder = "NormalizedData"
-compiledProjectFolder = "compiledData"
+compiledProjectFolder = "CompiledData"
 
 ##############################################################################################################################################################
 
