@@ -26,8 +26,8 @@ The selected folder will have numerous folders and files added to it, so for pur
 
 **note the triple backslash in the file path names given as an example.  This is important because of how Python treats these characters**
 """
-inputDirectory = "\\\cga\Data\General\Dept\BIM\Dynamo\Mining Program Data\Data\Campus4\RawData"
-workingDirectory = "\\\cga\Data\General\Dept\BIM\Dynamo\Mining Program Data\Data\Campus4"
+inputDirectory = "\\\cga\Data\General\Dept\KnowledgeMgmt\ReCouncil\\03_Project Folders\Programming_Data_Management\Data_Mining\High School Data\Data From Projects"
+workingDirectory = "\\\cga\Data\General\Dept\KnowledgeMgmt\ReCouncil\\03_Project Folders\Programming_Data_Management\Data_Mining\High School Data"
 
 ##############################################################################################################################################################
 

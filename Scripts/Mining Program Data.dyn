@@ -54,7 +54,7 @@
     {
       "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
       "NodeType": "PythonScriptNode",
-      "Code": "import math\r\n\r\n# Enable Python support and load DesignScript library\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import *\r\n\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('DSCoreNodes')\r\nimport DSCore\r\nfrom DSCore.List import *\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\r\ndef getBoundaryCurves(_room):\r\n\t_curvesOut = []\r\n\treturn _room.GetBoundarySegments(SpatialElementBoundaryOptions())\r\n\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuiapp = DocumentManager.Instance.CurrentUIApplication\r\napp = uiapp.Application\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\naproxDivisionDistance = IN[0]\r\nselectedPhases = IN[1]\r\nselectedDepts = IN[2]\r\nselectedLevels = IN[3]\r\n\r\nif type(selectedPhases) != list:\r\n\tselectedPhases = [selectedPhases]\r\nif type(selectedDepts) != list:\r\n\tselectedDepts = [selectedDepts]\r\nif type(selectedLevels) != list:\r\n\tselectedLevels = [selectedLevels]\r\n\t\r\nrooms = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).WhereElementIsNotElementType().ToElements()\r\nreportingData = []\r\nroomData = []\r\nfor i, room in enumerate(rooms):\r\n\ttry:\r\n\t\tphaseMatched = False\r\n\t\tdepartmentMatched = False\r\n\t\tlevelMatched = False\r\n\t\tfor phase in selectedPhases:\r\n\t\t\tif room.get_Parameter(BuiltInParameter.ROOM_PHASE).AsValueString() == phase:\r\n\t\t\t\tphaseMatched = True\r\n\t\tfor dept in selectedDepts:\r\n\t\t\tif room.LookupParameter('Department').AsString() == dept:\r\n\t\t\t\tdepartmentMatched = True\r\n\t\tfor level in selectedLevels:\r\n\t\t\tif room.Level.Name == level:\r\n\t\t\t\tlevelMatched = True\r\n\t\t\r\n\t\tif room.Area > 0 and phaseMatched and departmentMatched and levelMatched: \r\n\t\t\troomObject = {}\r\n\t\t\troomObject[\"elevation\"] = round(room.Level.Elevation)\r\n\t\t\troomObject[\"level\"] = room.Level.Name\r\n\t\t\troomObject[\"area\"] = room.Area\r\n\t\t\t\r\n\t\t\t########Additional parameters can be added to the list below as necessary\r\n\t\t\troomObject[\"name\"] = room.LookupParameter('Name').AsString()\r\n\t\t\troomObject[\"department\"] = room.LookupParameter('Department').AsString()\r\n\t\t\troomObject[\"number\"] = room.LookupParameter('Number').AsString()\r\n\t\t\troomObject[\"occupancy\"] = room.LookupParameter('Occupancy').AsString()\r\n\t\t\troomObject[\"base finish\"] = room.LookupParameter('Base Finish').AsString()\r\n\t\t\troomObject[\"ceiling finish\"] = room.LookupParameter('Ceiling Finish').AsString()\r\n\t\t\troomObject[\"wall finish\"] = room.LookupParameter('Wall Finish').AsString()\r\n\t\t\troomObject[\"floor finish\"] = room.LookupParameter('Floor Finish').AsString()\r\n\t\t\t\r\n\t\t\troomObject[\"outerLoop\"] = []\r\n\t\t\troomObject[\"innerLoops\"] = []\r\n\t\t\tboundaryCurves = getBoundaryCurves(room)\r\n\t\t\t\r\n\t\t\treportingRoom = []\r\n\t\t\t##############The following for loop is the logic to convert the boundary curves into nested lists of points\r\n\t\t\tfor j, loop in enumerate(boundaryCurves):\r\n\t\t\t\tif j == 0:\r\n\t\t\t\t\taccessKey = \"outerLoop\"\r\n\t\t\t\t\troomObject[accessKey] = []\r\n\t\t\t\telse:\r\n\t\t\t\t\taccessKey = \"innerLoops\"\r\n\t\t\t\t\taccessIndex = j-1\r\n\t\t\t\t\troomObject[accessKey].append([])\r\n\t\t\t\t\t\r\n\t\t\t\treportingLoop = []\r\n\t\t\t\tfor curve in loop:\r\n\t\t\t\t\tcurveGeom = curve.GetCurve()\r\n\t\t\t\t\treportingLoop.append(curveGeom.ToProtoType())\r\n\t\t\t\t\ttype = curveGeom.GetType().ToString()\r\n\t\t\t\t\t\r\n\t\t\t\t\tif type == \"Autodesk.Revit.DB.Line\":\r\n\t\t\t\t\t\tpointDict = dict()\r\n\t\t\t\t\t\tstartPoint = curveGeom.GetEndPoint(0)\r\n\t\t\t\t\t\tpointDict[\"x\"] = round(startPoint.X,5)\r\n\t\t\t\t\t\tpointDict[\"y\"] = round(startPoint.Y,5)\r\n\t\t\t\t\t\tpointDict[\"z\"] = roomObject[\"elevation\"]\r\n\t\t\t\t\t\tif j == 0:\r\n\t\t\t\t\t\t\troomObject[accessKey].append(dict(pointDict))\r\n\t\t\t\t\t\telse:\r\n\t\t\t\t\t\t\troomObject[accessKey][accessIndex].append(dict(pointDict))\r\n\t\t\t\t\telse:\r\n\t\t\t\t\t\t#the logic to run if the line is curved to generate approximating straight segment geometry\t\t\t\t\r\n\t\t\t\t\t\tevalParams = []\r\n\t\t\t\t\t\tnumberOfSteps = math.ceil(curveGeom.Length/aproxDivisionDistance)\r\n\t\t\t\t\t\tparamStep = 1/numberOfSteps\r\n\t\t\t\t\t\tfor step in range(int(numberOfSteps)):\r\n\t\t\t\t\t\t\tevalParams.append((step)*paramStep)\r\n\t\t\t\t\t\t\t\r\n\t\t\t\t\t\tfor param in evalParams:\r\n\t\t\t\t\t\t\tpointDict = dict()\r\n\t\t\t\t\t\t\tevalPoint = curveGeom.Evaluate(param,True)\r\n\t\t\t\t\t\t\tpointDict[\"x\"] = round(evalPoint.X,5)\r\n\t\t\t\t\t\t\tpointDict[\"y\"] = round(evalPoint.Y,5)\r\n\t\t\t\t\t\t\tpointDict[\"z\"] = roomObject[\"elevation\"]\r\n\t\t\t\t\t\t\tif j == 0:\r\n\t\t\t\t\t\t\t\troomObject[accessKey].append(dict(pointDict))\r\n\t\t\t\t\t\t\telse:\r\n\t\t\t\t\t\t\t\troomObject[accessKey][accessIndex].append(dict(pointDict))\r\n\t\t\t\treportingRoom.append(reportingLoop)\r\n\t\t\treportingData.append(reportingRoom)\r\n\t\t\t\t\r\n\t\t\troomData.append(roomObject)\r\n\texcept:\r\n\t\t'could not export room'\t\r\n\t\t\t\t\r\n\r\nOUT = [roomData,reportingData]",
+      "Code": "import math\r\n\r\n# Enable Python support and load DesignScript library\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import *\r\n\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('DSCoreNodes')\r\nimport DSCore\r\nfrom DSCore.List import *\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\r\ndef getBoundaryCurves(_room):\r\n\t_curvesOut = []\r\n\treturn _room.GetBoundarySegments(SpatialElementBoundaryOptions())\r\n\r\ndef normalizeDepartmentName(_name):\r\n\tif _name:\r\n\t\tnewName = ''\r\n\t\tfor letter in _name:\r\n\t\t\tif letter == ',':\r\n\t\t\t\tletter = ''\r\n\t\t\tif letter == '&':\r\n\t\t\t\tletter = 'and'\r\n\t\t\tnewName += letter\r\n\t\treturn newName\r\n\telse:\r\n\t\treturn ''\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuiapp = DocumentManager.Instance.CurrentUIApplication\r\napp = uiapp.Application\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\naproxDivisionDistance = IN[0]\r\nselectedPhases = IN[1]\r\nselectedDepts = IN[2]\r\nselectedLevels = IN[3]\r\n\r\nif type(selectedPhases) != list:\r\n\tselectedPhases = [selectedPhases]\r\nif type(selectedDepts) != list:\r\n\tselectedDepts = [selectedDepts]\r\nif type(selectedLevels) != list:\r\n\tselectedLevels = [selectedLevels]\r\n\t\r\nrooms = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).WhereElementIsNotElementType().ToElements()\r\nreportingData = []\r\nroomData = []\r\nfor i, room in enumerate(rooms):\r\n\ttry:\r\n\t\tphaseMatched = False\r\n\t\tdepartmentMatched = False\r\n\t\tlevelMatched = False\r\n\t\tfor phase in selectedPhases:\r\n\t\t\tif room.get_Parameter(BuiltInParameter.ROOM_PHASE).AsValueString() == phase:\r\n\t\t\t\tphaseMatched = True\r\n\t\tfor dept in selectedDepts:\r\n\t\t\tif normalizeDepartmentName(room.LookupParameter('Department').AsString()) == dept:\r\n\t\t\t\tdepartmentMatched = True\r\n\t\t\tif room.LookupParameter('Department').AsString() == None and dept == \"unnamed\":\r\n\t\t\t\tdepartmentMatched = True\r\n\t\tfor level in selectedLevels:\r\n\t\t\tif room.Level.Name == level:\r\n\t\t\t\tlevelMatched = True\r\n\t\t\r\n\t\tif room.Area > 0 and phaseMatched and departmentMatched and levelMatched: \r\n\t\t\troomObject = {}\r\n\t\t\troomObject[\"elevation\"] = round(room.Level.Elevation)\r\n\t\t\troomObject[\"level\"] = room.Level.Name\r\n\t\t\troomObject[\"area\"] = room.Area\r\n\t\t\t\r\n\t\t\t########Additional parameters can be added to the list below as necessary\r\n\t\t\troomObject[\"name\"] = room.LookupParameter('Name').AsString()\r\n\t\t\t\r\n\t\t\troomObject[\"department\"] = room.LookupParameter('Department').AsString()\r\n\t\t\tif roomObject[\"department\"] == '' or roomObject[\"department\"] == None:\r\n\t\t\t\troomObject[\"department\"] = roomObject[\"name\"]\r\n\t\t\t\r\n\t\t\troomObject[\"number\"] = room.LookupParameter('Number').AsString()\r\n\t\t\troomObject[\"occupancy\"] = room.LookupParameter('Occupancy').AsString()\r\n\t\t\troomObject[\"base finish\"] = room.LookupParameter('Base Finish').AsString()\r\n\t\t\troomObject[\"ceiling finish\"] = room.LookupParameter('Ceiling Finish').AsString()\r\n\t\t\troomObject[\"wall finish\"] = room.LookupParameter('Wall Finish').AsString()\r\n\t\t\troomObject[\"floor finish\"] = room.LookupParameter('Floor Finish').AsString()\r\n\t\t\t\r\n\t\t\t###########################################################################\r\n\t\t\t#########This parameter is a custom project parameter###########################################################################\r\n\t\t\t###########################################################################\r\n\t\t\ttry:\r\n\t\t\t\tif room.LookupParameter('Teaching Station').AsDouble():\r\n\t\t\t\t\troomObject[\"teaching stations\"] = room.LookupParameter('Teaching Station').AsDouble()\r\n\t\t\texcept:\r\n\t\t\t\t\"this parameter didn't exist\"\r\n\t\t\t\r\n\t\t\t###########################################################################\r\n\t\t\t###########################################################################\r\n\t\t\t###########################################################################\r\n\t\t\troomObject[\"outerLoop\"] = []\r\n\t\t\troomObject[\"innerLoops\"] = []\r\n\t\t\tboundaryCurves = getBoundaryCurves(room)\r\n\t\t\t\r\n\t\t\treportingRoom = []\r\n\t\t\t##############The following for loop is the logic to convert the boundary curves into nested lists of points\r\n\t\t\tfor j, loop in enumerate(boundaryCurves):\r\n\t\t\t\tif j == 0:\r\n\t\t\t\t\taccessKey = \"outerLoop\"\r\n\t\t\t\t\troomObject[accessKey] = []\r\n\t\t\t\telse:\r\n\t\t\t\t\taccessKey = \"innerLoops\"\r\n\t\t\t\t\taccessIndex = j-1\r\n\t\t\t\t\troomObject[accessKey].append([])\r\n\t\t\t\t\t\r\n\t\t\t\treportingLoop = []\r\n\t\t\t\tfor curve in loop:\r\n\t\t\t\t\tcurveGeom = curve.GetCurve()\r\n\t\t\t\t\treportingLoop.append(curveGeom.ToProtoType())\r\n\t\t\t\t\ttype = curveGeom.GetType().ToString()\r\n\t\t\t\t\t\r\n\t\t\t\t\tif type == \"Autodesk.Revit.DB.Line\":\r\n\t\t\t\t\t\tpointDict = dict()\r\n\t\t\t\t\t\tstartPoint = curveGeom.GetEndPoint(0)\r\n\t\t\t\t\t\tpointDict[\"x\"] = round(startPoint.X,5)\r\n\t\t\t\t\t\tpointDict[\"y\"] = round(startPoint.Y,5)\r\n\t\t\t\t\t\tpointDict[\"z\"] = roomObject[\"elevation\"]\r\n\t\t\t\t\t\tif j == 0:\r\n\t\t\t\t\t\t\troomObject[accessKey].append(dict(pointDict))\r\n\t\t\t\t\t\telse:\r\n\t\t\t\t\t\t\troomObject[accessKey][accessIndex].append(dict(pointDict))\r\n\t\t\t\t\telse:\r\n\t\t\t\t\t\t#the logic to run if the line is curved to generate approximating straight segment geometry\t\t\t\t\r\n\t\t\t\t\t\tevalParams = []\r\n\t\t\t\t\t\tnumberOfSteps = math.ceil(curveGeom.Length/aproxDivisionDistance)\r\n\t\t\t\t\t\tparamStep = 1/numberOfSteps\r\n\t\t\t\t\t\tfor step in range(int(numberOfSteps)):\r\n\t\t\t\t\t\t\tevalParams.append((step)*paramStep)\r\n\t\t\t\t\t\t\t\r\n\t\t\t\t\t\tfor param in evalParams:\r\n\t\t\t\t\t\t\tpointDict = dict()\r\n\t\t\t\t\t\t\tevalPoint = curveGeom.Evaluate(param,True)\r\n\t\t\t\t\t\t\tpointDict[\"x\"] = round(evalPoint.X,5)\r\n\t\t\t\t\t\t\tpointDict[\"y\"] = round(evalPoint.Y,5)\r\n\t\t\t\t\t\t\tpointDict[\"z\"] = roomObject[\"elevation\"]\r\n\t\t\t\t\t\t\tif j == 0:\r\n\t\t\t\t\t\t\t\troomObject[accessKey].append(dict(pointDict))\r\n\t\t\t\t\t\t\telse:\r\n\t\t\t\t\t\t\t\troomObject[accessKey][accessIndex].append(dict(pointDict))\r\n\t\t\t\treportingRoom.append(reportingLoop)\r\n\t\t\treportingData.append(reportingRoom)\r\n\t\t\t\t\r\n\t\t\troomData.append(roomObject)\r\n\texcept:\r\n\t\t'could not export room'\t\r\n\t\t\t\t\r\n\r\nOUT = [roomData,reportingData]",
       "VariableInputPorts": true,
       "Id": "431385d3712d4ee094e4e7d13faecaf5",
       "Inputs": [
@@ -699,12 +699,12 @@
     {
       "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
       "NodeType": "CodeBlockNode",
-      "Code": "listViewName = \"select phases\";\nlistViewHeight = 300;",
+      "Code": "listViewName = \"select phases\";\nlistViewHeight = 400;",
       "Id": "a9bf821e2f304d9ba1eb52032c712b34",
       "Inputs": [],
       "Outputs": [
         {
-          "Id": "c0322b0bd07749caa78f4417a32a8c6d",
+          "Id": "cbb3b0d0740b4433a0f5b812082039ce",
           "Name": "",
           "Description": "listViewName",
           "UsingDefaultValue": false,
@@ -713,7 +713,7 @@
           "KeepListStructure": false
         },
         {
-          "Id": "e1577281d05d494c9fe700febe16233a",
+          "Id": "de58aefcf5fd4d50a2f3360b82092410",
           "Name": "",
           "Description": "listViewHeight",
           "UsingDefaultValue": false,
@@ -733,7 +733,7 @@
       "Inputs": [],
       "Outputs": [
         {
-          "Id": "0d83fb460a11424ca998e33ed0da7aa6",
+          "Id": "006c6bb3e0e44df5b26d41f154bd72ea",
           "Name": "",
           "Description": "cancelButton",
           "UsingDefaultValue": false,
@@ -742,7 +742,7 @@
           "KeepListStructure": false
         },
         {
-          "Id": "cfa42736092e4c94932b0892159b23e4",
+          "Id": "6990d971a02d4ffa987b539ffbadae3b",
           "Name": "",
           "Description": "maxHeight",
           "UsingDefaultValue": false,
@@ -751,7 +751,7 @@
           "KeepListStructure": false
         },
         {
-          "Id": "0ea60adeb65641dcac7eab5609ed58e9",
+          "Id": "411b35008c7f4daea570d518ccf36e3c",
           "Name": "",
           "Description": "interfaceWidth",
           "UsingDefaultValue": false,
@@ -834,7 +834,7 @@
     {
       "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
       "NodeType": "PythonScriptNode",
-      "Code": "# Enable Python support and load DesignScript library\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import *\r\n\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('DSCoreNodes')\r\nimport DSCore\r\nfrom DSCore.List import *\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuiapp = DocumentManager.Instance.CurrentUIApplication\r\napp = uiapp.Application\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\nselectedPhases = IN[0]\r\n\r\nif type(selectedPhases) != list:\r\n\tselectedPhases = [selectedPhases]\r\n\r\nrooms = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).WhereElementIsNotElementType().ToElements()\r\n\r\nfilteredDepartments = []\r\nfor room in rooms:\r\n\tfor phase in selectedPhases:\r\n\t\tif room.get_Parameter(BuiltInParameter.ROOM_PHASE).AsValueString() == phase:\r\n\t\t\tfilteredDepartments.append(room.LookupParameter(\"Department\").AsString())\r\n\r\nuniqueDepartments = uniqueVals(filteredDepartments)\r\ndepartmentCounts = []\r\n\r\nfor uniqueDept in uniqueDepartments:\r\n\tdeptCount = 0\r\n\tfor dept in filteredDepartments:\r\n\t\tif uniqueDept == dept:\r\n\t\t\tdeptCount += 1\r\n\tdepartmentCounts.append(deptCount)\r\n\r\nOUT = [uniqueDepartments,departmentCounts]",
+      "Code": "# Enable Python support and load DesignScript library\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import *\r\n\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('DSCoreNodes')\r\nimport DSCore\r\nfrom DSCore.List import *\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuiapp = DocumentManager.Instance.CurrentUIApplication\r\napp = uiapp.Application\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\nselectedPhases = IN[0]\r\n\r\nif type(selectedPhases) != list:\r\n\tselectedPhases = [selectedPhases]\r\n\r\nrooms = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).WhereElementIsNotElementType().ToElements()\r\n\r\nfilteredDepartments = []\r\nfor room in rooms:\r\n\tfor phase in selectedPhases:\r\n\t\tif room.get_Parameter(BuiltInParameter.ROOM_PHASE).AsValueString() == phase:\r\n\t\t\tif room.LookupParameter(\"Department\").AsString():\r\n\t\t\t\tfilteredDepartments.append(room.LookupParameter(\"Department\").AsString())\r\n\t\t\telse:\r\n\t\t\t\tfilteredDepartments.append(\"unnamed\")\r\n\r\nuniqueDepartments = uniqueVals(filteredDepartments)\r\ndepartmentCounts = []\r\n\r\nfor uniqueDept in uniqueDepartments:\r\n\tdeptCount = 0\r\n\tfor dept in filteredDepartments:\r\n\t\tif uniqueDept == dept:\r\n\t\t\tdeptCount += 1\r\n\tdepartmentCounts.append(deptCount)\r\n\r\nOUT = [uniqueDepartments,departmentCounts]",
       "VariableInputPorts": true,
       "Id": "a45e41df69d041bd94973890c015f33a",
       "Inputs": [
@@ -1252,12 +1252,12 @@
     {
       "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
       "NodeType": "CodeBlockNode",
-      "Code": "listViewName = \"select departments\";\nlistViewHeight = 300;",
+      "Code": "listViewName = \"select departments\";\nlistViewHeight = 400;",
       "Id": "92e4a80332424eae90038c9becb51009",
       "Inputs": [],
       "Outputs": [
         {
-          "Id": "88b3034768f242c193534c5158fab341",
+          "Id": "a11ac8d8eed0444da2a44d3cd4dc5b19",
           "Name": "",
           "Description": "listViewName",
           "UsingDefaultValue": false,
@@ -1266,7 +1266,7 @@
           "KeepListStructure": false
         },
         {
-          "Id": "f37c5dbd7c4c436f9d19df2deffdffdb",
+          "Id": "b2dd862caa624a74bd52cf5d7dfb3585",
           "Name": "",
           "Description": "listViewHeight",
           "UsingDefaultValue": false,
@@ -1446,7 +1446,7 @@
       "Inputs": [],
       "Outputs": [
         {
-          "Id": "0dea6849d88d4d278cc65b940229fb21",
+          "Id": "01ca742531ce4a9a9839591b32fcc5b3",
           "Name": "",
           "Description": "cancelButton",
           "UsingDefaultValue": false,
@@ -1455,7 +1455,7 @@
           "KeepListStructure": false
         },
         {
-          "Id": "e303362735334b9a8c8dcc998042819d",
+          "Id": "03ea2387bbf44dc5802968d23b31c4b4",
           "Name": "",
           "Description": "maxHeight",
           "UsingDefaultValue": false,
@@ -1464,7 +1464,7 @@
           "KeepListStructure": false
         },
         {
-          "Id": "9d567d8a42894681abdcf67e9b1ae718",
+          "Id": "75bb2bb21d204130ba83a58a2b7d2878",
           "Name": "",
           "Description": "interfaceWidth",
           "UsingDefaultValue": false,
@@ -1547,7 +1547,7 @@
     {
       "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
       "NodeType": "PythonScriptNode",
-      "Code": "# Enable Python support and load DesignScript library\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import *\r\n\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('DSCoreNodes')\r\nimport DSCore\r\nfrom DSCore.List import *\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuiapp = DocumentManager.Instance.CurrentUIApplication\r\napp = uiapp.Application\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\nselectedPhases = IN[0]\r\nselectedDepartments = IN[1]\r\n\r\nif type(selectedPhases) != list:\r\n\tselectedPhases = [selectedPhases]\r\nif type(selectedDepartments) != list:\r\n\tselectedDepartments = [selectedDepartments]\r\n\t\r\nrooms = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).WhereElementIsNotElementType().ToElements()\r\n\r\nfilteredLevels = []\r\nfor room in rooms:\r\n\tif room.Area > 0:\r\n\t\tphaseMatched = False\r\n\t\tdeptMatched = False\r\n\t\tfor phase in selectedPhases:\r\n\t\t\tif room.get_Parameter(BuiltInParameter.ROOM_PHASE).AsValueString() == phase:\r\n\t\t\t\tphaseMatched = True\r\n\t\t\t\tbreak\r\n\t\tfor dept in selectedDepartments:\r\n\t\t\tif room.LookupParameter(\"Department\").AsString() == dept:\r\n\t\t\t\tdeptMatched = True\r\n\t\t\t\tbreak\r\n\t\tif phaseMatched and deptMatched:\r\n\t\t\tfilteredLevels.append(room.Level)\r\n\r\nlevelNames = []\r\nfor level in filteredLevels:\r\n\tlevelNames.append(level.Name)\r\nuniqueLevelNames = uniqueVals(levelNames)\r\n\r\nlevelCounts = []\r\nfor levelName in uniqueLevelNames:\r\n\tlevelCounter = 0\r\n\tfor level in filteredLevels:\r\n\t\tif level.Name == levelName:\r\n\t\t\tlevelCounter += 1\r\n\tlevelCounts.append(levelCounter)\r\n\r\nOUT = [uniqueLevelNames,levelCounts]",
+      "Code": "# Enable Python support and load DesignScript library\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import *\r\n\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('DSCoreNodes')\r\nimport DSCore\r\nfrom DSCore.List import *\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\r\ndef normalizeDepartmentName(_name):\r\n\tif _name:\r\n\t\tnewName = ''\r\n\t\tfor letter in _name:\r\n\t\t\tif letter == ',':\r\n\t\t\t\tletter = ''\r\n\t\t\tif letter == '&':\r\n\t\t\t\tletter = 'and'\r\n\t\t\tnewName += letter\r\n\t\treturn newName\r\n\telse:\r\n\t\treturn ''\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuiapp = DocumentManager.Instance.CurrentUIApplication\r\napp = uiapp.Application\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\nselectedPhases = IN[0]\r\nselectedDepartments = IN[1]\r\n\r\nif type(selectedPhases) != list:\r\n\tselectedPhases = [selectedPhases]\r\nif type(selectedDepartments) != list:\r\n\tselectedDepartments = [selectedDepartments]\r\n\t\r\nrooms = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).WhereElementIsNotElementType().ToElements()\r\n\r\nfilteredLevels = []\r\nfor room in rooms:\r\n\tif room.Area > 0:\r\n\t\tphaseMatched = False\r\n\t\tdeptMatched = False\r\n\t\tfor phase in selectedPhases:\r\n\t\t\tif room.get_Parameter(BuiltInParameter.ROOM_PHASE).AsValueString() == phase:\r\n\t\t\t\tphaseMatched = True\r\n\t\t\t\tbreak\r\n\t\tfor dept in selectedDepartments:\r\n\t\t\tif normalizeDepartmentName(room.LookupParameter(\"Department\").AsString()) == dept:\r\n\t\t\t\tdeptMatched = True\r\n\t\t\t\tbreak\r\n\t\t\tif dept == \"unnamed\" and room.LookupParameter(\"Department\").AsString() == None:\r\n\t\t\t\tdeptMatched = True\r\n\t\t\t\tbreak\r\n\t\tif phaseMatched and deptMatched:\r\n\t\t\tfilteredLevels.append(room.Level)\r\n\r\nlevelNames = []\r\nfor level in filteredLevels:\r\n\tlevelNames.append(level.Name)\r\nuniqueLevelNames = uniqueVals(levelNames)\r\n\r\nlevelCounts = []\r\nfor levelName in uniqueLevelNames:\r\n\tlevelCounter = 0\r\n\tfor level in filteredLevels:\r\n\t\tif level.Name == levelName:\r\n\t\t\tlevelCounter += 1\r\n\tlevelCounts.append(levelCounter)\r\n\r\nOUT = [uniqueLevelNames,levelCounts]",
       "VariableInputPorts": true,
       "Id": "bff095489e3c4b8fa6a1e3b55ca0d294",
       "Inputs": [
@@ -1699,12 +1699,12 @@
     {
       "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
       "NodeType": "CodeBlockNode",
-      "Code": "listViewName = \"select levels\";\nlistViewHeight = 300;",
+      "Code": "listViewName = \"select levels\";\nlistViewHeight = 400;",
       "Id": "d2eed58b05e04b01a467fa85b6049731",
       "Inputs": [],
       "Outputs": [
         {
-          "Id": "4bca7c1ee43f46af930eec57f033185d",
+          "Id": "9633f3e882a848e982e4800f0bf4ec0a",
           "Name": "",
           "Description": "listViewName",
           "UsingDefaultValue": false,
@@ -1713,7 +1713,7 @@
           "KeepListStructure": false
         },
         {
-          "Id": "9ebf9774e4234997b432170d377bc47d",
+          "Id": "cb465f6d87b847fca344ac259fbd3465",
           "Name": "",
           "Description": "listViewHeight",
           "UsingDefaultValue": false,
@@ -2129,7 +2129,7 @@
       "Inputs": [],
       "Outputs": [
         {
-          "Id": "e1a9b194af964dea9fab89d55bc1caa1",
+          "Id": "4aa1d086046a4ec8a8124f3198bbe351",
           "Name": "",
           "Description": "cancelButton",
           "UsingDefaultValue": false,
@@ -2138,7 +2138,7 @@
           "KeepListStructure": false
         },
         {
-          "Id": "6c1a65cf55b541efb80b2d74197dbc39",
+          "Id": "18217c0fff6d4f5ea00d9bdfe37290de",
           "Name": "",
           "Description": "maxHeight",
           "UsingDefaultValue": false,
@@ -2147,7 +2147,7 @@
           "KeepListStructure": false
         },
         {
-          "Id": "24f7968d88d346cfa4f835f26c0f9ffc",
+          "Id": "08a8eca7c5d64410bfbe4f8fb42a4ed4",
           "Name": "",
           "Description": "interfaceWidth",
           "UsingDefaultValue": false,
@@ -2697,12 +2697,12 @@
     {
       "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
       "NodeType": "CodeBlockNode",
-      "Code": "cancelButton = \"STOP\";\nmaxHeight = 1000;\ninterfaceWidth = 600;",
+      "Code": "cancelButton = \"STOP\";\nmaxHeight = 1000;\ninterfaceWidth = 1000;",
       "Id": "5726f593460c41f4b53dcba9226b739a",
       "Inputs": [],
       "Outputs": [
         {
-          "Id": "46ffeac2b0814c0c8cef65832faf030f",
+          "Id": "c4c7a06163df47a0999db8dc41af4ec1",
           "Name": "",
           "Description": "cancelButton",
           "UsingDefaultValue": false,
@@ -2711,7 +2711,7 @@
           "KeepListStructure": false
         },
         {
-          "Id": "305939bd08db4d30aaae16246d2e4d4d",
+          "Id": "b0e844225444453d8d853cf8047fc33b",
           "Name": "",
           "Description": "maxHeight",
           "UsingDefaultValue": false,
@@ -2720,7 +2720,7 @@
           "KeepListStructure": false
         },
         {
-          "Id": "b56d23b4f73940f7979fad4bb1031208",
+          "Id": "f8c27332f44e4bd58cff6eeea3995410",
           "Name": "",
           "Description": "interfaceWidth",
           "UsingDefaultValue": false,
@@ -3229,7 +3229,7 @@
     {
       "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
       "NodeType": "PythonScriptNode",
-      "Code": "namesIn = IN[0]\r\nnamesOut = []\r\n\r\nfor name in namesIn:\r\n\tif name:\r\n\t\tnewName = ''\r\n\t\tfor letter in name:\r\n\t\t\tif letter == ',':\r\n\t\t\t\tletter = ''\r\n\t\t\tif letter == '&':\r\n\t\t\t\tletter = 'and'\r\n\t\t\tnewName += letter\r\n\t\tnamesOut.append(newName)\r\n\r\nOUT = namesOut",
+      "Code": "namesIn = IN[0]\r\nnamesOut = []\r\n\r\ndef normalizeDepartmentName(_name):\r\n\tif _name:\r\n\t\tnewName = ''\r\n\t\tfor letter in _name:\r\n\t\t\tif letter == ',':\r\n\t\t\t\tletter = ''\r\n\t\t\tif letter == '&':\r\n\t\t\t\tletter = 'and'\r\n\t\t\tnewName += letter\r\n\t\treturn newName\r\n\telse:\r\n\t\treturn ''\r\n\r\nfor name in namesIn:\r\n\tnamesOut.append(normalizeDepartmentName(name))\r\n\r\nOUT = namesOut",
       "VariableInputPorts": true,
       "Id": "92d847ae8ca0479c930a8e5ca6b07efd",
       "Inputs": [
@@ -3714,29 +3714,29 @@
       "Id": "4b6dc90d134e4135bccbb1ca80a72e30"
     },
     {
-      "Start": "c0322b0bd07749caa78f4417a32a8c6d",
+      "Start": "cbb3b0d0740b4433a0f5b812082039ce",
       "End": "9083ec9609a242179df15a9190d00bcc",
-      "Id": "6f12391f0ba54083902658fb9b97d8d0"
+      "Id": "47eb7e4aebf84096998432871108d533"
     },
     {
-      "Start": "e1577281d05d494c9fe700febe16233a",
+      "Start": "de58aefcf5fd4d50a2f3360b82092410",
       "End": "b56ede092453450bbc50635952d15132",
-      "Id": "3160cfe7f49e4f98bcccaf67184eb303"
+      "Id": "8859e4376e7d470390a6c23cdb8b164f"
     },
     {
-      "Start": "0d83fb460a11424ca998e33ed0da7aa6",
+      "Start": "006c6bb3e0e44df5b26d41f154bd72ea",
       "End": "aac60dd7d69141b8a6d243404ab5989d",
-      "Id": "e0352df182654f278c897d4c6f0a6c45"
+      "Id": "105ea6de69264f5fbbf7a454327219db"
     },
     {
-      "Start": "cfa42736092e4c94932b0892159b23e4",
+      "Start": "6990d971a02d4ffa987b539ffbadae3b",
       "End": "c89ce19d7329464a8b019157999c59cf",
-      "Id": "58a263deaa6f42bd9ded7b232402d093"
+      "Id": "e80a8cc9fc2649068e46e42c4c3707b4"
     },
     {
-      "Start": "0ea60adeb65641dcac7eab5609ed58e9",
+      "Start": "411b35008c7f4daea570d518ccf36e3c",
       "End": "076c58ba5b1d497c949149f8e9f1d22c",
-      "Id": "e7ae62f5763e4791890b7859df48c89c"
+      "Id": "aaee338fdfbd483ca4871e5f36a356a9"
     },
     {
       "Start": "724338af4c4244309b943fa1f0ce8b2d",
@@ -3844,14 +3844,14 @@
       "Id": "3177c9e8c8264cca90e679b90fa11f14"
     },
     {
-      "Start": "88b3034768f242c193534c5158fab341",
+      "Start": "a11ac8d8eed0444da2a44d3cd4dc5b19",
       "End": "96e5042ce5f14dbda3a4f38ebf4b3d38",
-      "Id": "d863349e46cd4885b4f5b48f372312f4"
+      "Id": "2c9fdcd263714976b8d49f9bee03c735"
     },
     {
-      "Start": "f37c5dbd7c4c436f9d19df2deffdffdb",
+      "Start": "b2dd862caa624a74bd52cf5d7dfb3585",
       "End": "9296b2a1fe2b4e3e81732789fb74a84a",
-      "Id": "83b7fc91296e4b6f9e264c1a848a9b74"
+      "Id": "cb09260cd7644d66a3f1e8c12fa24ba6"
     },
     {
       "Start": "4c9282e1a81342cbbeb0e0ca5c898161",
@@ -3869,19 +3869,19 @@
       "Id": "cfec86f729cb47339b90c8b1a3f02b9c"
     },
     {
-      "Start": "0dea6849d88d4d278cc65b940229fb21",
+      "Start": "01ca742531ce4a9a9839591b32fcc5b3",
       "End": "d67df181dfa643d69b59af462249646d",
-      "Id": "1721746e97fe4eb68d79ad365d52a8d1"
+      "Id": "ad5f8f501d1b4e46b193689d2f449ff6"
     },
     {
-      "Start": "e303362735334b9a8c8dcc998042819d",
+      "Start": "03ea2387bbf44dc5802968d23b31c4b4",
       "End": "c7ee1382b7834368a63ae07567d8340c",
-      "Id": "7f4e65f6312d441a8203307cdc0c7a88"
+      "Id": "63e0c925483f46e38841a32afa4c168d"
     },
     {
-      "Start": "9d567d8a42894681abdcf67e9b1ae718",
+      "Start": "75bb2bb21d204130ba83a58a2b7d2878",
       "End": "77a7615b078f47d785a289bfe736bca2",
-      "Id": "cce36c9bcca34af6a38f4af43417a393"
+      "Id": "4e6f82c0b592499d9370619c61fee6bf"
     },
     {
       "Start": "4430e5c75a014f39b17d88fb120924ad",
@@ -3919,14 +3919,14 @@
       "Id": "64a9f01ef99e410fb218f4bddb24eeb7"
     },
     {
-      "Start": "4bca7c1ee43f46af930eec57f033185d",
+      "Start": "9633f3e882a848e982e4800f0bf4ec0a",
       "End": "cde4000cead04156a0650bbc63db8f62",
-      "Id": "4979c0764e7c416296c6f6abcf951612"
+      "Id": "9b20f1579eb64c079167c820d89bb769"
     },
     {
-      "Start": "9ebf9774e4234997b432170d377bc47d",
+      "Start": "cb465f6d87b847fca344ac259fbd3465",
       "End": "9924f205e0e44cedbf09a8bde9c409a8",
-      "Id": "c7511586a431470aba2fc860005b9bd5"
+      "Id": "24f843bef344481098607c4aa2e99949"
     },
     {
       "Start": "9414cc3821bc4ebfa39c3144f6dccdd6",
@@ -3989,19 +3989,19 @@
       "Id": "20591c005ebd4c8fbd0b8a08e59c8f50"
     },
     {
-      "Start": "e1a9b194af964dea9fab89d55bc1caa1",
+      "Start": "4aa1d086046a4ec8a8124f3198bbe351",
       "End": "d26226005a43485896f3232b5162eab7",
-      "Id": "da113c42d5c74492a13dbc5283f1def2"
+      "Id": "802b27c126a442639073a4aa291fb94b"
     },
     {
-      "Start": "6c1a65cf55b541efb80b2d74197dbc39",
+      "Start": "18217c0fff6d4f5ea00d9bdfe37290de",
       "End": "a041544ba25d41969f4aac0faf99447f",
-      "Id": "8f134d16ff7c4cb0850e682e8eefdaf9"
+      "Id": "b808668ff84b4ef291a41115900647b4"
     },
     {
-      "Start": "24f7968d88d346cfa4f835f26c0f9ffc",
+      "Start": "08a8eca7c5d64410bfbe4f8fb42a4ed4",
       "End": "aae3d69608fc479c9938dd93b23746ed",
-      "Id": "c26513b06f4a46ec8a2dc1bffa9bb2ce"
+      "Id": "a0ea9c816746497bb1ab0ceaffae0b15"
     },
     {
       "Start": "dd23d80768ae4e34ad033c53fade8303",
@@ -4129,14 +4129,14 @@
       "Id": "5b22a18cea6e4e1aa41fbfaf18141c2b"
     },
     {
-      "Start": "46ffeac2b0814c0c8cef65832faf030f",
+      "Start": "c4c7a06163df47a0999db8dc41af4ec1",
       "End": "1e36a3b8b923401590df3210467b56e2",
-      "Id": "59af5ff0036b49d096673ee1fd308c52"
+      "Id": "8989505a3f2b4385a1e6b0648f68e2cf"
     },
     {
-      "Start": "305939bd08db4d30aaae16246d2e4d4d",
+      "Start": "b0e844225444453d8d853cf8047fc33b",
       "End": "286385d0d4114f759e2de034cb2fc9ff",
-      "Id": "522b15fd621a46eaacff157c1d5b4776"
+      "Id": "ce68e3c26a0947abaf6fad144ab5c262"
     },
     {
       "Start": "a4023d545069488dbc78e443e66dc2a1",
@@ -4325,15 +4325,15 @@
     },
     "Camera": {
       "Name": "Background Preview",
-      "EyeX": 515.92887688983478,
-      "EyeY": 273.06069139407094,
-      "EyeZ": -628.52427757192254,
-      "LookX": -450.89455507052008,
-      "LookY": -415.81424079335221,
-      "LookZ": 823.93864839397872,
-      "UpX": -0.095708718316625932,
-      "UpY": 0.97992470462088366,
-      "UpZ": 0.17489257992255583
+      "EyeX": 131.73232345861911,
+      "EyeY": 101.9202924822354,
+      "EyeZ": 235.62919308731969,
+      "LookX": -163.13661533091485,
+      "LookY": -164.70864111480421,
+      "LookZ": -195.72879043398225,
+      "UpX": -0.22422105961962185,
+      "UpY": 0.93667218924846984,
+      "UpZ": -0.26901696286976728
     },
     "NodeViews": [
       {
@@ -4363,8 +4363,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7816.7649846464255,
-        "Y": -654.665249683189
+        "X": 7806.40295025085,
+        "Y": -610.62660350199678
       },
       {
         "ShowGeometry": true,
@@ -4373,8 +4373,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7476.078137192173,
-        "Y": -656.74428002956552
+        "X": 7465.7161027965976,
+        "Y": -612.70563384837328
       },
       {
         "ShowGeometry": true,
@@ -4483,7 +4483,7 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 1223.3452641358945,
+        "X": 1225.0753849765192,
         "Y": 1041.4887393105064
       },
       {
@@ -4583,8 +4583,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 2892.9874996289045,
-        "Y": 1216.219767522726
+        "X": 2923.0956137740077,
+        "Y": 1160.7574519922689
       },
       {
         "ShowGeometry": true,
@@ -4873,8 +4873,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8655.2614113817854,
-        "Y": 402.61743547704623
+        "X": 8652.6709027828911,
+        "Y": 317.13065171355515
       },
       {
         "ShowGeometry": true,
@@ -4943,17 +4943,17 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8418.1740828970287,
-        "Y": 454.599484118022
+        "X": 8415.5835742981344,
+        "Y": 369.11270035453094
       },
       {
-        "ShowGeometry": true,
+        "ShowGeometry": false,
         "Name": "Normalize Department Names",
         "Id": "92d847ae8ca0479c930a8e5ca6b07efd",
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 2833.0426258160046,
+        "X": 2874.9909491083667,
         "Y": 744.52111281351608
       },
       {
@@ -4963,8 +4963,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8415.3114884644583,
-        "Y": -165.70875539924452
+        "X": 8384.2044553810065,
+        "Y": -601.20721856758257
       },
       {
         "ShowGeometry": true,
@@ -4973,8 +4973,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8736.2002912360349,
-        "Y": -100.72342303114192
+        "X": 8705.0932581525831,
+        "Y": -536.22188619948
       },
       {
         "ShowGeometry": true,
@@ -4983,8 +4983,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 9056.4091419274646,
-        "Y": -99.866030115147282
+        "X": 9025.3021088440128,
+        "Y": -535.36449328348533
       },
       {
         "ShowGeometry": true,
@@ -5036,7 +5036,7 @@
         ],
         "Left": 647.08258420719676,
         "Top": 1563.3965379489912,
-        "Width": 417.0,
+        "Width": 460.0,
         "Height": 147.0,
         "FontSize": 36.0,
         "InitialTop": 1616.3965379489912,
@@ -5128,7 +5128,7 @@
         ],
         "Left": 2126.3779867142216,
         "Top": 691.52111281351608,
-        "Width": 918.664639101783,
+        "Width": 960.61296239414514,
         "Height": 156.76077723277876,
         "FontSize": 36.0,
         "InitialTop": 744.52111281351608,
@@ -5162,13 +5162,13 @@
           "1fba53496ac2443eb5b1271e7eebd72f",
           "92e4a80332424eae90038c9becb51009"
         ],
-        "Left": 2882.9874996289045,
+        "Left": 2913.0956137740077,
         "Top": 1099.0681652988321,
-        "Width": 816.63595761191254,
+        "Width": 786.52784346680937,
         "Height": 380.0,
         "FontSize": 36.0,
         "InitialTop": 1152.0681652988321,
-        "InitialHeight": 209.15160222389386,
+        "InitialHeight": 209.15160222389795,
         "TextblockHeight": 43.0,
         "Background": "#FFA4E1FF"
       },
@@ -5272,12 +5272,12 @@
           "431385d3712d4ee094e4e7d13faecaf5",
           "30e640f9a8804ab29056f751032dbf43"
         ],
-        "Left": 7466.078137192173,
-        "Top": -709.74428002956552,
+        "Left": 7455.7161027965976,
+        "Top": -665.70563384837328,
         "Width": 513.68684745425253,
         "Height": 226.0790303463765,
         "FontSize": 36.0,
-        "InitialTop": -656.74428002956552,
+        "InitialTop": -612.70563384837328,
         "InitialHeight": 147.0790303463765,
         "TextblockHeight": 43.0,
         "Background": "#FF848484"
@@ -5415,12 +5415,12 @@
           "0a9502a58c014d1f8a0319e9733c6ba1",
           "1c539b1c45254eeb9412d62833d8d460"
         ],
-        "Left": 8405.3114884644583,
-        "Top": -218.70875539924452,
-        "Width": 867.09765346300628,
+        "Left": 8374.2044553810065,
+        "Top": -654.20721856758257,
+        "Width": 873.09765346300628,
         "Height": 496.84272528409724,
         "FontSize": 36.0,
-        "InitialTop": -165.70875539924452,
+        "InitialTop": -601.20721856758257,
         "InitialHeight": 210.84272528409724,
         "TextblockHeight": 43.0,
         "Background": "#FFB9F9E1"
@@ -5432,12 +5432,12 @@
           "cf2d92cfff314a389a08c62d03df93bd",
           "83f6479a32204b8789c726701b5fd22f"
         ],
-        "Left": 8408.1740828970287,
-        "Top": 349.61743547704623,
+        "Left": 8405.5835742981344,
+        "Top": 264.13065171355515,
         "Width": 381.08732848475665,
         "Height": 275.98204864097579,
         "FontSize": 36.0,
-        "InitialTop": 402.61743547704623,
+        "InitialTop": 317.13065171355515,
         "InitialHeight": 196.98204864097579,
         "TextblockHeight": 43.0,
         "Background": "#FF71C6A8"
@@ -5547,8 +5547,8 @@
         "Background": "#FFC1D676"
       }
     ],
-    "X": -550.751925340189,
-    "Y": 1034.1479844100381,
-    "Zoom": 0.17055996569951537
+    "X": -1892.4884202415496,
+    "Y": 51.846651248084868,
+    "Zoom": 0.48993230825531631
   }
 }

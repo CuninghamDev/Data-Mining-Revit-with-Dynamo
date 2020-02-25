@@ -11,6 +11,7 @@ excelFilePath = os.path.join(workingDirectory,normalizeDepartmentKey+".xlsx")
 
 normLogDataFrame = pd.read_excel(io=excelFilePath, sheet_name=normalizationLogSheetName)
 normLogKeys = list(normLogDataFrame.to_dict().keys())
+print(normLogKeys)
 normLogDict = normLogDataFrame.to_dict('records')
 
 normKeyDataFrame = pd.read_excel(io=excelFilePath, sheet_name=normalizationKeySheetName)
@@ -46,8 +47,10 @@ for project in compiledJsons:
     for room in projectData["Room Data"]:
         origDept = room["department"]
         for logRow in normLogDict:
+            # print(logRow)
             loggedOrigDept = logRow[normLogKeys[1]]
             if origDept == loggedOrigDept:
+                
                 room["normalized department"] = logRow[normLogKeys[-1]]
                 if logRow[normLogKeys[-1]] != logRow[normLogKeys[-2]]:
                     changed = True
