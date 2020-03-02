@@ -32,8 +32,8 @@
     },
     {
       "ConcreteType": "CoreNodeModels.Input.Filename, CoreNodeModels",
-      "HintPath": "\\\\cga\\Data\\General\\Dept\\KnowledgeMgmt\\ReCouncil\\00_Templates and Processes\\CGA Assets\\CGA Logo Image.jpg",
-      "InputValue": "..\\..\\..\\..\\KnowledgeMgmt\\ReCouncil\\00_Templates and Processes\\CGA Assets\\CGA Logo Image.jpg",
+      "HintPath": "\\\\cga\\Data\\General\\Dept\\BIM\\Dynamo\\Mining Program Data\\Assets\\MidwestUniversityLogo.jpg",
+      "InputValue": "..\\Assets\\MidwestUniversityLogo.jpg",
       "NodeType": "ExtensionNode",
       "Id": "769d28ab6e834ca786f8dba985f5c58c",
       "Inputs": [],
@@ -4353,8 +4353,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 657.08258420719676,
-        "Y": 1616.3965379489912
+        "X": 868.86078780650314,
+        "Y": 1607.7171033752491
       },
       {
         "ShowGeometry": true,
@@ -5034,12 +5034,12 @@
         "Nodes": [
           "769d28ab6e834ca786f8dba985f5c58c"
         ],
-        "Left": 647.08258420719676,
-        "Top": 1563.3965379489912,
-        "Width": 460.0,
+        "Left": 858.86078780650314,
+        "Top": 1554.7171033752491,
+        "Width": 244.0,
         "Height": 147.0,
         "FontSize": 36.0,
-        "InitialTop": 1616.3965379489912,
+        "InitialTop": 1607.7171033752491,
         "InitialHeight": 145.0,
         "TextblockHeight": 43.0,
         "Background": "#FFA4E1FF"
@@ -5168,7 +5168,7 @@
         "Height": 380.0,
         "FontSize": 36.0,
         "InitialTop": 1152.0681652988321,
-        "InitialHeight": 209.15160222389795,
+        "InitialHeight": 153.68928669343677,
         "TextblockHeight": 43.0,
         "Background": "#FFA4E1FF"
       },
@@ -5417,8 +5417,8 @@
         ],
         "Left": 8374.2044553810065,
         "Top": -654.20721856758257,
-        "Width": 873.09765346300628,
-        "Height": 496.84272528409724,
+        "Width": 739.09765346300628,
+        "Height": 212.84272528409724,
         "FontSize": 36.0,
         "InitialTop": -601.20721856758257,
         "InitialHeight": 210.84272528409724,
@@ -5547,8 +5547,8 @@
         "Background": "#FFC1D676"
       }
     ],
-    "X": -1892.4884202415496,
-    "Y": 51.846651248084868,
-    "Zoom": 0.48993230825531631
+    "X": 122.50032504619617,
+    "Y": -117.55857909872998,
+    "Zoom": 0.5760743925792734
   }
 }

@@ -48,6 +48,8 @@ if exportCsv:
                 roomPropData = room[roomProperty]
                 if type(roomPropData) != list and type(roomPropData) != bool:
                     roomObj[roomProperty] = roomPropData
+
+            
             if "teaching stations" not in room:
                 roomObj["teaching stations"] = 0
             buildingsToCsv.append(roomObj)
