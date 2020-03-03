@@ -54,7 +54,7 @@
     {
       "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
       "NodeType": "PythonScriptNode",
-      "Code": "import math\r\n\r\n# Enable Python support and load DesignScript library\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import *\r\n\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('DSCoreNodes')\r\nimport DSCore\r\nfrom DSCore.List import *\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\r\ndef getBoundaryCurves(_room):\r\n\t_curvesOut = []\r\n\treturn _room.GetBoundarySegments(SpatialElementBoundaryOptions())\r\n\r\ndef normalizeDepartmentName(_name):\r\n\tif _name:\r\n\t\tnewName = ''\r\n\t\tfor letter in _name:\r\n\t\t\tif letter == ',':\r\n\t\t\t\tletter = ''\r\n\t\t\tif letter == '&':\r\n\t\t\t\tletter = 'and'\r\n\t\t\tnewName += letter\r\n\t\treturn newName\r\n\telse:\r\n\t\treturn ''\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuiapp = DocumentManager.Instance.CurrentUIApplication\r\napp = uiapp.Application\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\naproxDivisionDistance = IN[0]\r\nselectedPhases = IN[1]\r\nselectedDepts = IN[2]\r\nselectedLevels = IN[3]\r\n\r\nif type(selectedPhases) != list:\r\n\tselectedPhases = [selectedPhases]\r\nif type(selectedDepts) != list:\r\n\tselectedDepts = [selectedDepts]\r\nif type(selectedLevels) != list:\r\n\tselectedLevels = [selectedLevels]\r\n\t\r\nrooms = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).WhereElementIsNotElementType().ToElements()\r\nreportingData = []\r\nroomData = []\r\nfor i, room in enumerate(rooms):\r\n\ttry:\r\n\t\tphaseMatched = False\r\n\t\tdepartmentMatched = False\r\n\t\tlevelMatched = False\r\n\t\tfor phase in selectedPhases:\r\n\t\t\tif room.get_Parameter(BuiltInParameter.ROOM_PHASE).AsValueString() == phase:\r\n\t\t\t\tphaseMatched = True\r\n\t\tfor dept in selectedDepts:\r\n\t\t\tif normalizeDepartmentName(room.LookupParameter('Department').AsString()) == dept:\r\n\t\t\t\tdepartmentMatched = True\r\n\t\t\tif room.LookupParameter('Department').AsString() == None and dept == \"unnamed\":\r\n\t\t\t\tdepartmentMatched = True\r\n\t\tfor level in selectedLevels:\r\n\t\t\tif room.Level.Name == level:\r\n\t\t\t\tlevelMatched = True\r\n\t\t\r\n\t\tif room.Area > 0 and phaseMatched and departmentMatched and levelMatched: \r\n\t\t\troomObject = {}\r\n\t\t\troomObject[\"elevation\"] = round(room.Level.Elevation)\r\n\t\t\troomObject[\"level\"] = room.Level.Name\r\n\t\t\troomObject[\"area\"] = room.Area\r\n\t\t\t\r\n\t\t\t########Additional parameters can be added to the list below as necessary\r\n\t\t\troomObject[\"name\"] = room.LookupParameter('Name').AsString()\r\n\t\t\t\r\n\t\t\troomObject[\"department\"] = room.LookupParameter('Department').AsString()\r\n\t\t\tif roomObject[\"department\"] == '' or roomObject[\"department\"] == None:\r\n\t\t\t\troomObject[\"department\"] = roomObject[\"name\"]\r\n\t\t\t\r\n\t\t\troomObject[\"number\"] = room.LookupParameter('Number').AsString()\r\n\t\t\troomObject[\"occupancy\"] = room.LookupParameter('Occupancy').AsString()\r\n\t\t\troomObject[\"base finish\"] = room.LookupParameter('Base Finish').AsString()\r\n\t\t\troomObject[\"ceiling finish\"] = room.LookupParameter('Ceiling Finish').AsString()\r\n\t\t\troomObject[\"wall finish\"] = room.LookupParameter('Wall Finish').AsString()\r\n\t\t\troomObject[\"floor finish\"] = room.LookupParameter('Floor Finish').AsString()\r\n\t\t\t\r\n\t\t\t###########################################################################\r\n\t\t\t#########This parameter is a custom project parameter###########################################################################\r\n\t\t\t###########################################################################\r\n\t\t\ttry:\r\n\t\t\t\tif room.LookupParameter('Teaching Station').AsDouble():\r\n\t\t\t\t\troomObject[\"teaching stations\"] = room.LookupParameter('Teaching Station').AsDouble()\r\n\t\t\texcept:\r\n\t\t\t\t\"this parameter didn't exist\"\r\n\t\t\t\r\n\t\t\ttry:\r\n\t\t\t\tif room.LookupParameter('Client Room Number').AsString():\r\n\t\t\t\t\troomObject[\"client room number\"] = room.LookupParameter('Client Room Number').AsString()\r\n\t\t\texcept:\r\n\t\t\t\t\"this parameter didn't exist\"\r\n\t\t\t###########################################################################\r\n\t\t\t###########################################################################\r\n\t\t\t###########################################################################\r\n\t\t\troomObject[\"outerLoop\"] = []\r\n\t\t\troomObject[\"innerLoops\"] = []\r\n\t\t\tboundaryCurves = getBoundaryCurves(room)\r\n\t\t\t\r\n\t\t\treportingRoom = []\r\n\t\t\t##############The following for loop is the logic to convert the boundary curves into nested lists of points\r\n\t\t\tfor j, loop in enumerate(boundaryCurves):\r\n\t\t\t\tif j == 0:\r\n\t\t\t\t\taccessKey = \"outerLoop\"\r\n\t\t\t\t\troomObject[accessKey] = []\r\n\t\t\t\telse:\r\n\t\t\t\t\taccessKey = \"innerLoops\"\r\n\t\t\t\t\taccessIndex = j-1\r\n\t\t\t\t\troomObject[accessKey].append([])\r\n\t\t\t\t\t\r\n\t\t\t\treportingLoop = []\r\n\t\t\t\tfor curve in loop:\r\n\t\t\t\t\tcurveGeom = curve.GetCurve()\r\n\t\t\t\t\treportingLoop.append(curveGeom.ToProtoType())\r\n\t\t\t\t\ttype = curveGeom.GetType().ToString()\r\n\t\t\t\t\t\r\n\t\t\t\t\tif type == \"Autodesk.Revit.DB.Line\":\r\n\t\t\t\t\t\tpointDict = dict()\r\n\t\t\t\t\t\tstartPoint = curveGeom.GetEndPoint(0)\r\n\t\t\t\t\t\tpointDict[\"x\"] = round(startPoint.X,5)\r\n\t\t\t\t\t\tpointDict[\"y\"] = round(startPoint.Y,5)\r\n\t\t\t\t\t\tpointDict[\"z\"] = roomObject[\"elevation\"]\r\n\t\t\t\t\t\tif j == 0:\r\n\t\t\t\t\t\t\troomObject[accessKey].append(dict(pointDict))\r\n\t\t\t\t\t\telse:\r\n\t\t\t\t\t\t\troomObject[accessKey][accessIndex].append(dict(pointDict))\r\n\t\t\t\t\telse:\r\n\t\t\t\t\t\t#the logic to run if the line is curved to generate approximating straight segment geometry\t\t\t\t\r\n\t\t\t\t\t\tevalParams = []\r\n\t\t\t\t\t\tnumberOfSteps = math.ceil(curveGeom.Length/aproxDivisionDistance)\r\n\t\t\t\t\t\tparamStep = 1/numberOfSteps\r\n\t\t\t\t\t\tfor step in range(int(numberOfSteps)):\r\n\t\t\t\t\t\t\tevalParams.append((step)*paramStep)\r\n\t\t\t\t\t\t\t\r\n\t\t\t\t\t\tfor param in evalParams:\r\n\t\t\t\t\t\t\tpointDict = dict()\r\n\t\t\t\t\t\t\tevalPoint = curveGeom.Evaluate(param,True)\r\n\t\t\t\t\t\t\tpointDict[\"x\"] = round(evalPoint.X,5)\r\n\t\t\t\t\t\t\tpointDict[\"y\"] = round(evalPoint.Y,5)\r\n\t\t\t\t\t\t\tpointDict[\"z\"] = roomObject[\"elevation\"]\r\n\t\t\t\t\t\t\tif j == 0:\r\n\t\t\t\t\t\t\t\troomObject[accessKey].append(dict(pointDict))\r\n\t\t\t\t\t\t\telse:\r\n\t\t\t\t\t\t\t\troomObject[accessKey][accessIndex].append(dict(pointDict))\r\n\t\t\t\treportingRoom.append(reportingLoop)\r\n\t\t\treportingData.append(reportingRoom)\r\n\t\t\t\t\r\n\t\t\troomData.append(roomObject)\r\n\texcept:\r\n\t\t'could not export room'\t\r\n\t\t\t\t\r\n\r\nOUT = [roomData,reportingData]",
+      "Code": "import math\r\n\r\n# Enable Python support and load DesignScript library\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import *\r\n\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('DSCoreNodes')\r\nimport DSCore\r\nfrom DSCore.List import *\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\r\ndef getBoundaryCurves(_room):\r\n\t_curvesOut = []\r\n\treturn _room.GetBoundarySegments(SpatialElementBoundaryOptions())\r\n\r\ndef normalizeDepartmentName(_name):\r\n\tif _name:\r\n\t\tnewName = ''\r\n\t\tfor letter in _name:\r\n\t\t\tif letter == ',':\r\n\t\t\t\tletter = ''\r\n\t\t\tif letter == '&':\r\n\t\t\t\tletter = 'and'\r\n\t\t\tnewName += letter\r\n\t\treturn newName\r\n\telse:\r\n\t\treturn ''\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuiapp = DocumentManager.Instance.CurrentUIApplication\r\napp = uiapp.Application\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\naproxDivisionDistance = IN[0]\r\nselectedPhases = IN[1]\r\nselectedDepts = IN[2]\r\nselectedLevels = IN[3]\r\n\r\nif type(selectedPhases) != list:\r\n\tselectedPhases = [selectedPhases]\r\nif type(selectedDepts) != list:\r\n\tselectedDepts = [selectedDepts]\r\nif type(selectedLevels) != list:\r\n\tselectedLevels = [selectedLevels]\r\n\t\r\nrooms = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).WhereElementIsNotElementType().ToElements()\r\nreportingData = []\r\nroomData = []\r\n\r\nfor i, room in enumerate(rooms):\r\n\ttry:\r\n\t\tphaseMatched = False\r\n\t\tdepartmentMatched = False\r\n\t\tlevelMatched = False\r\n\t\tisActiveDesignOption = False\r\n\t\tfor phase in selectedPhases:\r\n\t\t\tif room.get_Parameter(BuiltInParameter.ROOM_PHASE).AsValueString() == phase:\r\n\t\t\t\tphaseMatched = True\r\n\t\tfor dept in selectedDepts:\r\n\t\t\tif normalizeDepartmentName(room.LookupParameter('Department').AsString()) == dept:\r\n\t\t\t\tdepartmentMatched = True\r\n\t\t\tif room.LookupParameter('Department').AsString() == None and dept == \"unnamed\":\r\n\t\t\t\tdepartmentMatched = True\r\n\t\tfor level in selectedLevels:\r\n\t\t\tif room.Level.Name == level:\r\n\t\t\t\tlevelMatched = True\r\n\t\tif not room.DesignOption:\r\n\t\t\tisActiveDesignOption = True\r\n\t\telif room.DesignOption.IsPrimary():\r\n\t\t\tisActiveDesignOption = True\r\n\r\n\t\tif room.Area > 0 and phaseMatched and departmentMatched and levelMatched and isActiveDesignOption: \r\n\t\t\troomObject = {}\r\n\t\t\troomObject[\"elevation\"] = round(room.Level.Elevation)\r\n\t\t\troomObject[\"level\"] = room.Level.Name\r\n\t\t\troomObject[\"area\"] = room.Area\r\n\t\t\t\r\n\t\t\t########Additional parameters can be added to the list below as necessary\r\n\t\t\troomObject[\"name\"] = room.LookupParameter('Name').AsString()\r\n\t\t\troomObject[\"department\"] = room.LookupParameter('Department').AsString()\r\n\t\t\tif roomObject[\"department\"] == '' or roomObject[\"department\"] == None:\r\n\t\t\t\troomObject[\"department\"] = roomObject[\"name\"]\r\n\t\t\troomObject[\"phase\"] = room.get_Parameter(BuiltInParameter.ROOM_PHASE).AsValueString()\r\n\t\t\t\r\n\t\t\troomObject[\"number\"] = room.LookupParameter('Number').AsString()\r\n\t\t\troomObject[\"occupancy\"] = room.LookupParameter('Occupancy').AsString()\r\n\t\t\troomObject[\"base finish\"] = room.LookupParameter('Base Finish').AsString()\r\n\t\t\troomObject[\"ceiling finish\"] = room.LookupParameter('Ceiling Finish').AsString()\r\n\t\t\troomObject[\"wall finish\"] = room.LookupParameter('Wall Finish').AsString()\r\n\t\t\troomObject[\"floor finish\"] = room.LookupParameter('Floor Finish').AsString()\r\n\t\t\t\r\n\t\t\troomObject[\"unique id\"] = room.UniqueId\r\n\t\t\t###########################################################################\r\n\t\t\t#########This section is for custom project parameters####################\r\n\t\t\t###########################################################################\r\n\t\t\ttry:\r\n\t\t\t\troomObject[\"teaching stations\"] = room.LookupParameter('Teaching Station').AsDouble()\r\n\t\t\texcept:\r\n\t\t\t\t\"this parameter didn't exist\"\r\n\t\t\t\t\r\n\t\t\ttry:\r\n\t\t\t\troomObject[\"client room number\"] = room.LookupParameter('Client Room Number').AsString()\r\n\t\t\texcept:\r\n\t\t\t\t\"this parameter didn't exist\"\r\n\t\t\t\t\r\n\t\t\ttry:\r\n\t\t\t\troomObject[\"room has window\"] = room.LookupParameter('Room has Window').AsValueString()\r\n\t\t\texcept:\r\n\t\t\t\t\"this parameter didn't exist\"\r\n\t\t\t###########################################################################\r\n\t\t\t###########################################################################\r\n\t\t\t###########################################################################\r\n\t\t\troomObject[\"outerLoop\"] = []\r\n\t\t\troomObject[\"innerLoops\"] = []\r\n\t\t\tboundaryCurves = getBoundaryCurves(room)\r\n\t\t\t\r\n\t\t\treportingRoom = []\r\n\t\t\t##############The following for loop is the logic to convert the boundary curves into nested lists of points\r\n\t\t\tfor j, loop in enumerate(boundaryCurves):\r\n\t\t\t\tif j == 0:\r\n\t\t\t\t\taccessKey = \"outerLoop\"\r\n\t\t\t\t\troomObject[accessKey] = []\r\n\t\t\t\telse:\r\n\t\t\t\t\taccessKey = \"innerLoops\"\r\n\t\t\t\t\taccessIndex = j-1\r\n\t\t\t\t\troomObject[accessKey].append([])\r\n\t\t\t\t\t\r\n\t\t\t\treportingLoop = []\r\n\t\t\t\tfor curve in loop:\r\n\t\t\t\t\tcurveGeom = curve.GetCurve()\r\n\t\t\t\t\treportingLoop.append(curveGeom.ToProtoType())\r\n\t\t\t\t\ttype = curveGeom.GetType().ToString()\r\n\t\t\t\t\t\r\n\t\t\t\t\tif type == \"Autodesk.Revit.DB.Line\":\r\n\t\t\t\t\t\tpointDict = dict()\r\n\t\t\t\t\t\tstartPoint = curveGeom.GetEndPoint(0)\r\n\t\t\t\t\t\tpointDict[\"x\"] = round(startPoint.X,5)\r\n\t\t\t\t\t\tpointDict[\"y\"] = round(startPoint.Y,5)\r\n\t\t\t\t\t\tpointDict[\"z\"] = roomObject[\"elevation\"]\r\n\t\t\t\t\t\tif j == 0:\r\n\t\t\t\t\t\t\troomObject[accessKey].append(dict(pointDict))\r\n\t\t\t\t\t\telse:\r\n\t\t\t\t\t\t\troomObject[accessKey][accessIndex].append(dict(pointDict))\r\n\t\t\t\t\telse:\r\n\t\t\t\t\t\t#the logic to run if the line is curved to generate approximating straight segment geometry\t\t\t\t\r\n\t\t\t\t\t\tevalParams = []\r\n\t\t\t\t\t\tnumberOfSteps = math.ceil(curveGeom.Length/aproxDivisionDistance)\r\n\t\t\t\t\t\tparamStep = 1/numberOfSteps\r\n\t\t\t\t\t\tfor step in range(int(numberOfSteps)):\r\n\t\t\t\t\t\t\tevalParams.append((step)*paramStep)\r\n\t\t\t\t\t\t\t\r\n\t\t\t\t\t\tfor param in evalParams:\r\n\t\t\t\t\t\t\tpointDict = dict()\r\n\t\t\t\t\t\t\tevalPoint = curveGeom.Evaluate(param,True)\r\n\t\t\t\t\t\t\tpointDict[\"x\"] = round(evalPoint.X,5)\r\n\t\t\t\t\t\t\tpointDict[\"y\"] = round(evalPoint.Y,5)\r\n\t\t\t\t\t\t\tpointDict[\"z\"] = roomObject[\"elevation\"]\r\n\t\t\t\t\t\t\tif j == 0:\r\n\t\t\t\t\t\t\t\troomObject[accessKey].append(dict(pointDict))\r\n\t\t\t\t\t\t\telse:\r\n\t\t\t\t\t\t\t\troomObject[accessKey][accessIndex].append(dict(pointDict))\r\n\t\t\t\treportingRoom.append(reportingLoop)\r\n\t\t\treportingData.append(reportingRoom)\r\n\t\t\t\t\r\n\t\t\troomData.append(roomObject)\r\n\texcept:\r\n\t\t'could not export room'\t\r\n\t\t\t\t\r\n\r\nOUT = [roomData,reportingData]",
       "VariableInputPorts": true,
       "Id": "431385d3712d4ee094e4e7d13faecaf5",
       "Inputs": [
@@ -2811,7 +2811,7 @@
     {
       "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
       "NodeType": "PythonScriptNode",
-      "Code": "import os\r\nimport json\r\nimport csv\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\t\r\ndef normalizeNulls(_input):\r\n\tif _input == \"null\" or _input == \"\" or _input == None:\r\n\t\treturn ''\r\n\telse:\r\n\t\treturn _input\r\n\r\ndef writeDictToCsv(_dataOut,_filePathOut):\r\n    csv_headers = _dataOut[0].keys()\r\n    #The data out should be formated as a list of dictionaries\r\n    #each dictionary should have identical keys\r\n    with open(_filePathOut, \"w\") as csvFile:\r\n        writer = csv.DictWriter(csvFile, fieldnames = csv_headers, delimiter = ',', lineterminator = '\\n')\r\n        writer.writeheader()\r\n        for row in _dataOut:\r\n            writer.writerow(row)\r\n\r\ndirectoryPath = IN[1][0]\r\nnormalizedPath = os.path.normpath(directoryPath)\r\nexportName = IN[1][1]\r\n\r\ncsvExportName = exportName + \".csv\"\r\njsonExportName = exportName + \".json\"\r\nlogExportName = exportName + \"_log.json\"\r\n\r\ncsvExportPath = os.path.join(normalizedPath, csvExportName)\r\njsonExportPath = os.path.join(normalizedPath, jsonExportName)\r\nlogExportPath = os.path.join(normalizedPath, logExportName)\r\n\r\nmetaDataKey = IN[1][2]\r\n\r\nmetaData = IN[2]\r\nroomData = IN[0][0]\r\n\r\nmetaDataMatched = False\r\nfor metaDataSet in metaData:\r\n\tif metaDataSet[0] == metaDataKey:\r\n\t\tmetaDataTitle = metaDataSet.pop(0)\r\n\t\tmetaDataKeys = metaDataSet\r\n\t\tmetaDataMatched = True\r\nif not metaDataMatched:\r\n\tmetaDataKeys = [\"manually enter metadata here\"]\r\n\r\n\r\n### fixing an issue with the point dictionaries not being JSON serializable\r\nfor room in roomData:\r\n\tnewOuterLoop = []\r\n\tfor point in room[\"outerLoop\"]:\r\n\t\tpointDict = dict(point)\r\n\t\tnewOuterLoop.append(pointDict)\r\n\troom[\"outerLoop\"] = newOuterLoop\r\n\t\r\n\tnewInnerLoops = []\r\n\tif len(room[\"innerLoops\"]) > 0:\r\n\t\tfor loop in room[\"innerLoops\"]:\r\n\t\t\tnewInnerLoop = []\r\n\t\t\tfor point in loop:\r\n\t\t\t\tpointDict = dict(point)\r\n\t\t\t\tnewInnerLoop.append(pointDict)\r\n\t\t\tnewInnerLoops.append(newInnerLoop)\r\n\t\troom[\"innerLoops\"] = newInnerLoops\r\n\t\t\r\n\telse:\r\n\t\troom[\"innerLoops\"] = False\r\n\t\t\r\nmetaDataTitle += \" Metadata\"\r\nmetaDataObj = {}\r\nfor key in metaDataKeys:\r\n\tmetaDataObj[key] = None\r\n\r\ndataObjectToJson = {metaDataTitle:dict(metaDataObj), \"Room Data\":roomData, \"Analysis Name\": exportName}\r\nwith open(jsonExportPath, 'w') as jsonOutFile:\r\n\tjson.dump(dataObjectToJson, jsonOutFile, indent = 2)\r\n\t\r\ncsvListOfObjects = []\r\nfor room in roomData:\r\n\trowObject = {\r\n\t\t\"room number\": normalizeNulls(room[\"number\"]),\r\n\t\t\"room name\": normalizeNulls(room[\"name\"]),\r\n\t\t\"department\": normalizeNulls(room[\"department\"]),\r\n\t\t\"level\": normalizeNulls(room[\"level\"]),\r\n\t\t\"elevation\": normalizeNulls(room[\"elevation\"]),\r\n\t\t\"area\": normalizeNulls(room[\"area\"]),\r\n\t\t\"wall finish\": normalizeNulls(room[\"wall finish\"]),\r\n\t\t\"ceiling finish\": normalizeNulls(room[\"ceiling finish\"]),\r\n\t\t\"base finish\": normalizeNulls(room[\"base finish\"]),\r\n\t\t\"floor finish\": normalizeNulls(room[\"floor finish\"])\r\n\t}\r\n\ttry:\r\n\t\trowObject[\"teaching stations\"] = normalizeNulls(room[\"teaching stations\"])\r\n\texcept:\r\n\t\t\"parrameter didn't exist\"\r\n\ttry:\r\n\t\trowObject[\"client room number\"] = normalizeNulls(room[\"client room number\"])\r\n\texcept:\r\n\t\t\"parrameter didn't exist\"\t\r\n\tcsvListOfObjects.append(rowObject)\r\n\r\nwriteDictToCsv(csvListOfObjects,csvExportPath)\r\n\r\n\r\nphaseData = IN[3]\r\ndepartmentData = IN[4]\r\nlevelData = IN[5]\r\n\r\nphaseIncluded = 0\r\nphaseExcluded = 0\r\nfor i,phase in enumerate(phaseData[0]):\r\n\tmatched = False\r\n\tfor selPhase in phaseData[2]:\r\n\t\tif selPhase == phase:\r\n\t\t\tmatched = True\r\n\t\t\tbreak\r\n\tif matched:\r\n\t\tphaseIncluded += phaseData[1][i]\r\n\telse:\r\n\t\tphaseExcluded += phaseData[1][i]\r\n\t\t\r\ndeptsIncluded = 0\r\ndeptsExcluded = 0\r\nfor i,dept in enumerate(departmentData[0]):\r\n\tmatched = False\r\n\tfor selDept in departmentData[2]:\r\n\t\tif selDept == dept:\r\n\t\t\tmatched = True\r\n\t\t\tbreak\r\n\tif matched:\r\n\t\tdeptsIncluded += departmentData[1][i]\r\n\telse:\r\n\t\tdeptsExcluded += departmentData[1][i]\r\n\t\t\r\nlevelsIncluded = 0\r\nlevelsExcluded = 0\r\nfor i,lvl in enumerate(levelData[0]):\r\n\tmatched = False\r\n\tfor selLvl in levelData[2]:\r\n\t\tif selLvl == lvl:\r\n\t\t\tmatched = True\r\n\t\t\tbreak\r\n\tif matched:\r\n\t\tlevelsIncluded += levelData[1][i]\r\n\telse:\r\n\t\tlevelsExcluded += levelData[1][i]\r\n\r\nlogData = {\r\n\t\"FIRST_selected_phases\": phaseData[2],\r\n\t\"phase_included_room_count\": int(phaseIncluded),\r\n\t\"phase_excluded_room_count\": int(phaseExcluded),\r\n\t\"SECOND_selected_departments\": departmentData[2],\r\n\t\"department_included_room_count\": int(deptsIncluded),\r\n\t\"department_excluded_room_count\": int(deptsExcluded),\r\n\t\"THIRD_selected_levels\": levelData[2],\r\n\t\"levels_included_room_count\": int(levelsIncluded),\r\n\t\"levels_excluded_room_count\": int(levelsExcluded)\r\n}\r\n\r\n\r\nwith open(logExportPath, 'w') as jsonOutFile:\r\n\tjson.dump(logData, jsonOutFile, indent = 2)\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n",
+      "Code": "import os\r\nimport json\r\nimport csv\r\nfrom collections import OrderedDict\r\n\r\ndef uniqueVals(_listInput):\r\n\t_listOut = [_listInput[0]]\r\n\tfor i,_item in enumerate(_listInput):\r\n\t\tif i > 0:\r\n\t\t\tunique = True\r\n\t\t\tfor _comparison in _listOut:\r\n\t\t\t\tif _comparison == _item:\r\n\t\t\t\t\tunique = False\r\n\t\t\t\t\tbreak\r\n\t\t\tif unique:\r\n\t\t\t\t_listOut.append(_item)\r\n\treturn _listOut\r\n\t\r\ndef normalizeNulls(_input):\r\n\tif _input == \"null\" or _input == \"\" or _input == None:\r\n\t\treturn ''\r\n\telse:\r\n\t\treturn _input\r\n\r\ndef writeDictToCsv(_dataOut,_filePathOut):\r\n    csv_headers = _dataOut[0].keys()\r\n    #The data out should be formated as a list of dictionaries\r\n    #each dictionary should have identical keys\r\n    with open(_filePathOut, \"w\") as csvFile:\r\n        writer = csv.DictWriter(csvFile, fieldnames = csv_headers, delimiter = ',', lineterminator = '\\n')\r\n        writer.writeheader()\r\n        for row in _dataOut:\r\n            writer.writerow(row)\r\n\r\ndirectoryPath = IN[1][0]\r\nnormalizedPath = os.path.normpath(directoryPath)\r\nexportName = IN[1][1]\r\n\r\ncsvExportName = exportName + \".csv\"\r\njsonExportName = exportName + \".json\"\r\nlogExportName = exportName + \"_log.json\"\r\n\r\ncsvExportPath = os.path.join(normalizedPath, csvExportName)\r\njsonExportPath = os.path.join(normalizedPath, jsonExportName)\r\nlogExportPath = os.path.join(normalizedPath, logExportName)\r\n\r\nmetaDataKey = IN[1][2]\r\n\r\nmetaData = IN[2]\r\nroomData = IN[0][0]\r\n\r\nmetaDataMatched = False\r\nfor metaDataSet in metaData:\r\n\tif metaDataSet[0] == metaDataKey:\r\n\t\tmetaDataTitle = metaDataSet.pop(0)\r\n\t\tmetaDataKeys = metaDataSet\r\n\t\tmetaDataMatched = True\r\nif not metaDataMatched:\r\n\tmetaDataKeys = [\"manually enter metadata here\"]\r\n\r\n\r\n### fixing an issue with the point dictionaries not being JSON serializable\r\nfor room in roomData:\r\n\tnewOuterLoop = []\r\n\tfor point in room[\"outerLoop\"]:\r\n\t\tpointDict = dict(point)\r\n\t\tnewOuterLoop.append(pointDict)\r\n\troom[\"outerLoop\"] = newOuterLoop\r\n\t\r\n\tnewInnerLoops = []\r\n\tif len(room[\"innerLoops\"]) > 0:\r\n\t\tfor loop in room[\"innerLoops\"]:\r\n\t\t\tnewInnerLoop = []\r\n\t\t\tfor point in loop:\r\n\t\t\t\tpointDict = dict(point)\r\n\t\t\t\tnewInnerLoop.append(pointDict)\r\n\t\t\tnewInnerLoops.append(newInnerLoop)\r\n\t\troom[\"innerLoops\"] = newInnerLoops\r\n\t\t\r\n\telse:\r\n\t\troom[\"innerLoops\"] = False\r\n\t\t\r\nmetaDataTitle += \" Metadata\"\r\nmetaDataObj = {}\r\nfor key in metaDataKeys:\r\n\tmetaDataObj[key] = None\r\n\r\ndataObjectToJson = {metaDataTitle:dict(metaDataObj), \"Room Data\":roomData, \"Analysis Name\": exportName}\r\nwith open(jsonExportPath, 'w') as jsonOutFile:\r\n\tjson.dump(dataObjectToJson, jsonOutFile, indent = 2)\r\n\t\r\ncsvListOfObjects = []\r\nfor room in roomData:\r\n\trowObject = OrderedDict()\r\n\trowObject[\"room number\"] = normalizeNulls(room[\"number\"])\r\n\t\r\n\ttry:\r\n\t\trowObject[\"client room number\"] = normalizeNulls(room[\"client room number\"])\r\n\texcept:\r\n\t\t\"parameter didn't exist\"\r\n\t\t\r\n\trowObject[\"room name\"] = normalizeNulls(room[\"name\"])\r\n\trowObject[\"department\"] = normalizeNulls(room[\"department\"])\r\n\trowObject[\"level\"] = normalizeNulls(room[\"level\"])\r\n\trowObject[\"elevation\"] = normalizeNulls(room[\"elevation\"])\r\n\trowObject[\"area\"] = normalizeNulls(room[\"area\"])\r\n\t\r\n\ttry:\r\n\t\trowObject[\"teaching stations\"] = normalizeNulls(room[\"teaching stations\"])\r\n\texcept:\r\n\t\t\"parameter didn't exist\"\r\n\t\r\n\ttry:\r\n\t\trowObject[\"has window\"] = normalizeNulls(room[\"room has window\"])\r\n\texcept:\r\n\t\t\"parameter didn't exist\"\t\r\n\t\r\n\trowObject[\"wall finish\"] = normalizeNulls(room[\"wall finish\"])\r\n\trowObject[\"ceiling finish\"] = normalizeNulls(room[\"ceiling finish\"])\r\n\trowObject[\"base finish\"] = normalizeNulls(room[\"base finish\"])\r\n\trowObject[\"floor finish\"] = normalizeNulls(room[\"floor finish\"])\r\n\trowObject[\"phase\"] = normalizeNulls(room[\"phase\"])\r\n\trowObject[\"unique id\"] = normalizeNulls(room[\"unique id\"])\r\n\r\n\t\r\n\tcsvListOfObjects.append(rowObject)\r\n\r\nwriteDictToCsv(csvListOfObjects,csvExportPath)\r\n\r\n\r\nphaseData = IN[3]\r\ndepartmentData = IN[4]\r\nlevelData = IN[5]\r\n\r\nphaseIncluded = 0\r\nphaseExcluded = 0\r\nfor i,phase in enumerate(phaseData[0]):\r\n\tmatched = False\r\n\tfor selPhase in phaseData[2]:\r\n\t\tif selPhase == phase:\r\n\t\t\tmatched = True\r\n\t\t\tbreak\r\n\tif matched:\r\n\t\tphaseIncluded += phaseData[1][i]\r\n\telse:\r\n\t\tphaseExcluded += phaseData[1][i]\r\n\t\t\r\ndeptsIncluded = 0\r\ndeptsExcluded = 0\r\nfor i,dept in enumerate(departmentData[0]):\r\n\tmatched = False\r\n\tfor selDept in departmentData[2]:\r\n\t\tif selDept == dept:\r\n\t\t\tmatched = True\r\n\t\t\tbreak\r\n\tif matched:\r\n\t\tdeptsIncluded += departmentData[1][i]\r\n\telse:\r\n\t\tdeptsExcluded += departmentData[1][i]\r\n\t\t\r\nlevelsIncluded = 0\r\nlevelsExcluded = 0\r\nfor i,lvl in enumerate(levelData[0]):\r\n\tmatched = False\r\n\tfor selLvl in levelData[2]:\r\n\t\tif selLvl == lvl:\r\n\t\t\tmatched = True\r\n\t\t\tbreak\r\n\tif matched:\r\n\t\tlevelsIncluded += levelData[1][i]\r\n\telse:\r\n\t\tlevelsExcluded += levelData[1][i]\r\n\r\nlogData = {\r\n\t\"FIRST_selected_phases\": phaseData[2],\r\n\t\"phase_included_room_count\": int(phaseIncluded),\r\n\t\"phase_excluded_room_count\": int(phaseExcluded),\r\n\t\"SECOND_selected_departments\": departmentData[2],\r\n\t\"department_included_room_count\": int(deptsIncluded),\r\n\t\"department_excluded_room_count\": int(deptsExcluded),\r\n\t\"THIRD_selected_levels\": levelData[2],\r\n\t\"levels_included_room_count\": int(levelsIncluded),\r\n\t\"levels_excluded_room_count\": int(levelsExcluded)\r\n}\r\n\r\n\r\nwith open(logExportPath, 'w') as jsonOutFile:\r\n\tjson.dump(logData, jsonOutFile, indent = 2)\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n",
       "VariableInputPorts": true,
       "Id": "cf2d92cfff314a389a08c62d03df93bd",
       "Inputs": [
@@ -3669,7 +3669,7 @@
     {
       "Start": "a02633fa2dc24168919069fd048ab4bd",
       "End": "c63a8c9e970f4832aedd3279d1d7cef9",
-      "Id": "84622f8305eb49d6a4ddb0e78ab808a9"
+      "Id": "8cc6fa9634124916933e5157fcd7b767"
     },
     {
       "Start": "787e766dab9b412d8cd465f40f9c45a1",
@@ -4413,15 +4413,15 @@
     },
     "Camera": {
       "Name": "Background Preview",
-      "EyeX": 375.54283168013006,
-      "EyeY": 429.30458632565683,
-      "EyeZ": 376.9780544590987,
-      "LookX": -375.490833498469,
-      "LookY": -453.71433130606965,
-      "LookZ": -352.47827882385587,
-      "UpX": -0.3534725743990802,
-      "UpY": 0.874619707139467,
-      "UpZ": -0.3318094438546062
+      "EyeX": 528.54841088804426,
+      "EyeY": 426.00982455582039,
+      "EyeZ": 221.10427367195069,
+      "LookX": -362.75838685712489,
+      "LookY": -414.74716070437955,
+      "LookZ": -260.56629690592138,
+      "UpX": -0.4122184888857981,
+      "UpY": 0.86162916044160154,
+      "UpZ": -0.29609307201885648
     },
     "NodeViews": [
       {
@@ -4451,8 +4451,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7806.40295025085,
-        "Y": -610.62660350199678
+        "X": 7886.578601421611,
+        "Y": -610.98243614943044
       },
       {
         "ShowGeometry": true,
@@ -4461,8 +4461,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7465.7161027965976,
-        "Y": -612.70563384837328
+        "X": 7468.85673343439,
+        "Y": -598.57279597830984
       },
       {
         "ShowGeometry": true,
@@ -4861,8 +4861,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7574.1763352885991,
-        "Y": 923.2560971662183
+        "X": 7587.6009298198442,
+        "Y": 909.83150263497328
       },
       {
         "ShowGeometry": true,
@@ -4961,8 +4961,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8652.6709027828911,
-        "Y": 317.13065171355515
+        "X": 8546.6698035345889,
+        "Y": 397.00217047482192
       },
       {
         "ShowGeometry": true,
@@ -5031,8 +5031,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8415.5835742981344,
-        "Y": 369.11270035453094
+        "X": 8309.5824750498323,
+        "Y": 448.98421911579771
       },
       {
         "ShowGeometry": false,
@@ -5081,8 +5081,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 7458.4735156397464,
-        "Y": 1490.6185951557804
+        "X": 7478.0239104207276,
+        "Y": 1335.8446364730148
       },
       {
         "ShowGeometry": true,
@@ -5111,8 +5111,8 @@
         "IsSetAsInput": false,
         "IsSetAsOutput": false,
         "Excluded": false,
-        "X": 8572.3070377358163,
-        "Y": 1528.5327592852591
+        "X": 8451.7462699197677,
+        "Y": 1676.7899197076977
       }
     ],
     "Annotations": [
@@ -5164,7 +5164,7 @@
         "Height": 380.0,
         "FontSize": 36.0,
         "InitialTop": 1194.4667978445605,
-        "InitialHeight": 151.37337025979832,
+        "InitialHeight": 180.64671238673532,
         "TextblockHeight": 43.0,
         "Background": "#FFA4E1FF"
       },
@@ -5256,7 +5256,7 @@
         "Height": 380.0,
         "FontSize": 36.0,
         "InitialTop": 1152.0681652988321,
-        "InitialHeight": 153.68928669343677,
+        "InitialHeight": 189.46404422987234,
         "TextblockHeight": 43.0,
         "Background": "#FFA4E1FF"
       },
@@ -5360,12 +5360,12 @@
           "431385d3712d4ee094e4e7d13faecaf5",
           "30e640f9a8804ab29056f751032dbf43"
         ],
-        "Left": 7455.7161027965976,
-        "Top": -665.70563384837328,
-        "Width": 513.68684745425253,
-        "Height": 226.0790303463765,
+        "Left": 7458.85673343439,
+        "Top": -663.98243614943044,
+        "Width": 590.72186798722123,
+        "Height": 224.0,
         "FontSize": 36.0,
-        "InitialTop": -612.70563384837328,
+        "InitialTop": -610.98243614943044,
         "InitialHeight": 147.0790303463765,
         "TextblockHeight": 43.0,
         "Background": "#FF848484"
@@ -5433,7 +5433,7 @@
         ],
         "Left": 7262.4071668426659,
         "Top": 801.37125408211,
-        "Width": 691.76916844593325,
+        "Width": 705.19376297717827,
         "Height": 477.262096707188,
         "FontSize": 36.0,
         "InitialTop": 854.37125408211,
@@ -5505,7 +5505,7 @@
         ],
         "Left": 8374.2044553810065,
         "Top": -654.20721856758257,
-        "Width": 912.09765346300628,
+        "Width": 886.09765346300628,
         "Height": 496.84272528409724,
         "FontSize": 36.0,
         "InitialTop": -601.20721856758257,
@@ -5520,12 +5520,12 @@
           "cf2d92cfff314a389a08c62d03df93bd",
           "83f6479a32204b8789c726701b5fd22f"
         ],
-        "Left": 8405.5835742981344,
-        "Top": 264.13065171355515,
+        "Left": 8299.5824750498323,
+        "Top": 344.00217047482192,
         "Width": 381.08732848475665,
         "Height": 275.98204864097579,
         "FontSize": 36.0,
-        "InitialTop": 317.13065171355515,
+        "InitialTop": 397.00217047482192,
         "InitialHeight": 196.98204864097579,
         "TextblockHeight": 43.0,
         "Background": "#FF71C6A8"
@@ -5536,12 +5536,12 @@
         "Nodes": [
           "61072c2a49ac4a4d819e3090c913e2a4"
         ],
-        "Left": 7448.4735156397464,
-        "Top": 1437.6185951557804,
+        "Left": 7468.0239104207276,
+        "Top": 1282.8446364730148,
         "Width": 504.0,
         "Height": 282.0,
         "FontSize": 36.0,
-        "InitialTop": 1490.6185951557804,
+        "InitialTop": 1335.8446364730148,
         "InitialHeight": 145.0,
         "TextblockHeight": 43.0,
         "Background": "#FFD8D8D8"
@@ -5635,8 +5635,8 @@
         "Background": "#FFC1D676"
       }
     ],
-    "X": -2265.0725066127393,
-    "Y": 389.23942156377018,
-    "Zoom": 0.41116866818731762
+    "X": -5585.4969977275568,
+    "Y": 1068.5372159989824,
+    "Zoom": 0.7459949560027983
   }
 }
