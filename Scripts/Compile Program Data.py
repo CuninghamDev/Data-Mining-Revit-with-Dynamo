@@ -49,9 +49,12 @@ if exportCsv:
                 if type(roomPropData) != list and type(roomPropData) != bool:
                     roomObj[roomProperty] = roomPropData
 
-            
-            if "teaching stations" not in room:
-                roomObj["teaching stations"] = 0
+            #adding any custom parameters that may not consistently appear across every room
+            # if "teaching stations" not in room:
+            #     roomObj["teaching stations"] = 0
+            if "client room number" not in room:
+                roomObj["client room number"] = ''
+
             buildingsToCsv.append(roomObj)
 
     compiledCsvFileName = timestamp + compiledFileName + ".csv"

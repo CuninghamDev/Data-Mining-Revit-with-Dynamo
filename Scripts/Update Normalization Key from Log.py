@@ -69,6 +69,8 @@ else:
             for room in projectData["Room Data"]:
                 matched = False
                 origDept = room["department"]
+                if origDept == '':
+                    origDept = " "
                 for logRow in normLogDict:
                     loggedOrigDept = logRow[normLogKeys[1]]
                     if origDept == loggedOrigDept:

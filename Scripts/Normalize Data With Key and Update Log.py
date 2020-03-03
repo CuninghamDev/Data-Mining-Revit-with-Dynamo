@@ -46,11 +46,12 @@ for project in compiledJsons:
     projectData = compiledJsons[project]
     for room in projectData["Room Data"]:
         origDept = room["department"]
+        if origDept == '':
+            origDept = " "
         for logRow in normLogDict:
             # print(logRow)
             loggedOrigDept = logRow[normLogKeys[1]]
             if origDept == loggedOrigDept:
-                
                 room["normalized department"] = logRow[normLogKeys[-1]]
                 if logRow[normLogKeys[-1]] != logRow[normLogKeys[-2]]:
                     changed = True

@@ -97,6 +97,13 @@ def writeDictToExcelSheet(_listOfDicts,_listOfKeys,_sheet):
         for j,_key in enumerate(_listOfKeys):
             for _itemKey in _rowDict:
                 if _itemKey == _key:
-                    _sheet.write(i+1,j,_rowDict[_key])
+                    if _rowDict[_key] and _rowDict[_key] != '':
+                        rowVal = _rowDict[_key]
+                    else:
+                        rowVal = ' '
+                    # print(i)
+                    # print(j)
+                    # print(rowVal)
+                    _sheet.write(int(i+1),int(j),rowVal)
             
 
